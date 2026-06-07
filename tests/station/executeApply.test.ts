@@ -41,4 +41,42 @@ describe('executeApply', () => {
     expect(result).toEqual(s);
     rmSync(home, { recursive: true, force: true });
   });
+
+  it('secret-only project with non-existent dir does not crash and writes no .mcp.json', () => {
+    const home = mkdtempSync(join(tmpdir(), 'cs-ap3-'));
+    const proj = join(home, 'noexist'); // dir intentionally NOT created
+    writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { globalA: { command: 'g' } } }));
+    const s = emptyState();
+    s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
+    s.assignments[proj] = { mcp: ['firecrawl'] };
+    saveState(s, home);
+
+    expect(() => executeApply(s, [proj], '20260608-030303', home)).not.toThrow();
+    // no .mcp.json written for a secret-only project
+    expect(existsSync(projectMcpJson(proj))).toBe(false);
+    // localscope still applied, globals preserved
+    const cj = JSON.parse(readFileSync(resolvePaths(home).claudeJson, 'utf8'));
+    expect(cj.mcpServers).toEqual({ globalA: { command: 'g' } });
+    expect(cj.projects[proj].mcpServers).toEqual({ firecrawl: { command: 'npx', env: { K: 'v' } } });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('applies multiple projects, preserving each others entries', () => {
+    const home = mkdtempSync(join(tmpdir(), 'cs-ap4-'));
+    const a = join(home, 'a'); const b = join(home, 'b');
+    mkdirSync(a, { recursive: true }); mkdirSync(b, { recursive: true });
+    writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { g: { command: 'g' } } }));
+    const s = emptyState();
+    s.library.mcp['fc'] = { id: 'fc', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
+    s.assignments[a] = { mcp: ['fc'] };
+    s.assignments[b] = { mcp: ['fc'] };
+    saveState(s, home);
+
+    executeApply(s, [a, b], '20260608-040404', home);
+    const cj = JSON.parse(readFileSync(resolvePaths(home).claudeJson, 'utf8'));
+    expect(cj.projects[a].mcpServers).toEqual({ fc: { command: 'npx', env: { K: 'v' } } });
+    expect(cj.projects[b].mcpServers).toEqual({ fc: { command: 'npx', env: { K: 'v' } } });
+    expect(cj.mcpServers).toEqual({ g: { command: 'g' } }); // globals intact
+    rmSync(home, { recursive: true, force: true });
+  });
 });
