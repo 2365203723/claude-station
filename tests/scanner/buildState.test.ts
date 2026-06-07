@@ -57,4 +57,14 @@ describe('buildState', () => {
     const p = s.projects.find(x => x.path === proj)!;
     expect(p.mcp.map(m => m.id)).toEqual(['exa']); // plocal 被禁用,剔除
   });
+
+  it('excludes disabled MCP coming from .mcp.json too', () => {
+    writeFileSync(join(home, '.claude.json'), JSON.stringify({
+      mcpServers: {},
+      projects: { [proj]: { mcpServers: {}, disabledMcpServers: ['exa'] } },
+    }));
+    const s = buildState(home);
+    const p = s.projects.find(x => x.path === proj)!;
+    expect(p.mcp.map(m => m.id)).toEqual([]); // exa from .mcp.json is disabled
+  });
 });

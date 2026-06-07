@@ -29,7 +29,7 @@ export function parseClaudeJson(raw: any): ClaudeJsonResult {
   const disabledByProject: Record<string, string[]> = {};
   for (const [path, p] of Object.entries<any>(projects)) {
     projectLocalMcp[path] = toCaps(p?.mcpServers, 'project-local');
-    disabledByProject[path] = p?.disabledMcpServers ?? [];
+    disabledByProject[path] = Array.isArray(p?.disabledMcpServers) ? p.disabledMcpServers : [];
   }
   return { userMcp, projectPaths, projectLocalMcp, disabledByProject };
 }

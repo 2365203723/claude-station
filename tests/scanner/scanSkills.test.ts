@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { scanSkills } from '../../src/main/scanner/scanSkills';
@@ -19,5 +19,24 @@ describe('scanSkills', () => {
     expect(skills[0].scope).toBe('user');
     expect(skills.find(s => s.id === 'graphify')!.path).toBe(join(dir, 'graphify'));
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('counts symlinks that resolve to directories, skips broken symlinks and file-symlinks', () => {
+    const realDirs = mkdtempSync(join(tmpdir(), 'cs-real-'));
+    mkdirSync(join(realDirs, 'targetskill'));
+    const fileTarget = join(realDirs, 'afile.txt');
+    writeFileSync(fileTarget, 'x');
+
+    const dir = mkdtempSync(join(tmpdir(), 'cs-symlinks-'));
+    mkdirSync(join(dir, 'realdir'));                                   // real dir → counts
+    symlinkSync(join(realDirs, 'targetskill'), join(dir, 'linkeddir')); // symlink→dir → counts
+    symlinkSync(fileTarget, join(dir, 'linkedfile'));                  // symlink→file → skipped
+    symlinkSync(join(realDirs, 'nope'), join(dir, 'broken'));          // broken symlink → skipped
+
+    const skills = scanSkills(dir, 'user');
+    expect(skills.map(s => s.id).sort()).toEqual(['linkeddir', 'realdir']);
+
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(realDirs, { recursive: true, force: true });
   });
 });
