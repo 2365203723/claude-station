@@ -288,9 +288,9 @@ Claude Code 的配置分两类机制:
 
 | 角色 | 选用 | 近似目标 |
 |------|------|----------|
-| 衬线标题(项目名、面板标题、大标题) | **Tiempos 近似:** Source Serif 4 / Newsreader | Tiempos |
-| 无衬线正文(UI、按钮、说明) | **Styrene 近似:** Inter / Hanken Grotesk | Styrene |
-| 等宽(diff、命令、token 占位) | JetBrains Mono | 代码块 |
+| 衬线标题(项目名、面板标题、大标题) | **Source Serif 4** | Tiempos |
+| 无衬线正文(UI、按钮、说明) | **Inter** | Styrene |
+| 等宽(diff、命令、token 占位) | **JetBrains Mono** | 代码块 |
 
 ### 11.3 形态规范
 
