@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('station', {
   unassign: (p: string, id: string): Promise<StationState> => ipcRenderer.invoke('station:unassign', p, id),
   plan: (paths: string[]): Promise<ApplyPlan> => ipcRenderer.invoke('station:plan', paths),
   apply: (paths: string[]): Promise<StationState> => ipcRenderer.invoke('station:apply', paths),
+  globalStatus: (): Promise<{ eligible: string[]; blocked: string[] }> => ipcRenderer.invoke('station:globalStatus'),
+  cleanupGlobal: (ids: string[]): Promise<string[]> => ipcRenderer.invoke('station:cleanupGlobal', ids),
 });

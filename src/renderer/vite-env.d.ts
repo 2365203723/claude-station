@@ -11,6 +11,8 @@ declare global {
       unassign: (projectPath: string, mcpId: string) => Promise<StationState>;
       plan: (projectPaths: string[]) => Promise<ApplyPlan>;
       apply: (projectPaths: string[]) => Promise<StationState>;
+      globalStatus: () => Promise<{ eligible: string[]; blocked: string[] }>;
+      cleanupGlobal: (ids: string[]) => Promise<string[]>;
     };
   }
 }

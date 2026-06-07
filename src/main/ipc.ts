@@ -7,6 +7,7 @@ import { seedStateFromInferred } from './station/seed';
 import { assignMcp, unassignMcp } from './station/assign';
 import { computeApplyPlan, executeApply } from './station/apply';
 import { stationPaths } from './station/paths';
+import { globalCleanupStatus, executeGlobalCleanup } from './station/cleanup';
 
 export function registerIpc(): void {
   ipcMain.handle('station:getState', () => buildState());
@@ -39,5 +40,16 @@ export function registerIpc(): void {
   ipcMain.handle('station:apply', (_e, projectPaths: string[]) => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     return executeApply(loadState(), projectPaths, stamp);
+  });
+
+  ipcMain.handle('station:globalStatus', () => {
+    const home = homedir();
+    const topLevelIds = buildState(home).userScope.mcp.map(m => m.id);
+    return globalCleanupStatus(topLevelIds, loadState(home));
+  });
+
+  ipcMain.handle('station:cleanupGlobal', (_e, ids: string[]) => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return executeGlobalCleanup(ids, stamp);
   });
 }
