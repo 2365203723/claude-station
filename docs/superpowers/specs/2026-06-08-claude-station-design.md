@@ -49,7 +49,7 @@ Claude Code 的配置分两类机制:
 | v1 范围 | MCP servers / Skills / Plugins / 项目配置文件 四类全做 |
 | 平台 | Electron 桌面 App |
 | 应用模型 | 暂存 + Apply:拖拽只改"期望状态",Apply 时先 diff 预览、备份、再写,可回滚 |
-| MCP 密钥 | 非敏感写项目根 `.mcp.json`(可提交);带 token 的用 `${VAR}` 占位,真值写项目本地 `.env`(不提交) |
+| MCP 密钥 | 按 `hasSecrets` 自动路由:不含密钥写项目根 `.mcp.json`(可提交);含 token 写 `~/.claude.json` 项目本地作用域(不进 git、官方推荐)。Claude Code 不读 `.env`,故弃用占位方案 |
 | 视觉风格 | **硬约束**:高保真 Claude 风格(纸感暖底 + 陶土橙 + 衬线标题/无衬线正文)。浅色默认 + 深色双主题。详见第 11 节 |
 
 ### 1.4 非目标(YAGNI)
@@ -110,8 +110,11 @@ Claude Code 的配置分两类机制:
 ### 3.1 MCP servers
 
 - 库存定义:命令、参数、env、密钥引用。
-- 装配:写进项目。非敏感 server 写项目根 `.mcp.json`(可提交、随仓库走);
-  带 token 的 server,token 不入库,改成 `${VAR}` 占位,真值写项目本地 `.env`(不提交)。
+- 装配:写进项目,按 `hasSecrets` 自动路由。不含密钥的 server 写项目根 `.mcp.json`
+  (可提交、随仓库走);含 token 的 server 写**项目本地作用域**——即 `~/.claude.json`
+  里该项目条目下的 `mcpServers`(不进 git、保证生效)。token 不入中央库。
+  > 注:Claude Code 只从启动时的 shell/进程环境展开 `.mcp.json` 的 `${VAR}`,**不会**
+  > 自动读项目 `.env`。故原"`.mcp.json` 占位 + `.env` 真值"方案不可行,改用 local scope。
 - **迁移**:把 `~/.claude.json` 顶层那 6 个 user-scope MCP 收进库,然后从顶层删除
   (这步才真正止住"全局注入")。删前自动备份 + 要用户确认。
 
@@ -210,8 +213,10 @@ Claude Code 的配置分两类机制:
 - **写前必备份**:任何真实文件写入前,先复制到 `backups/<时间戳>/`,保留可回滚入口。
 - **JSON 安全合并**:改 `~/.claude.json` / `settings.json` 时只动能力相关字段,
   保留其余字段(尤其 Claude 高频写的 lastCost、sessionId 等),用结构化合并而非整体覆盖。
-- **密钥不入库**:token 永远不进中央库;装配写 `${VAR}` 占位,真值进项目 `.env`。
-- **`.env` 防提交**:写 `.env` 时确保项目 `.gitignore` 含 `.env`,没有则追加。
+- **密钥不入库**:token 永远不进中央库;含密钥的 server 装配到 `~/.claude.json`
+  项目本地作用域(不进 git),字面 token 只存在那里。
+- **不依赖 `.env`**:Claude Code 不会从项目 `.env` 展开 `.mcp.json` 的 `${VAR}`,
+  故不走 `.env`;`.mcp.json` 只承载不含密钥的 server。
 - **并发**:Apply 前检测文件 mtime,若 Claude 正在写(检测到变化)则提示稍后或重新导入,避免覆盖冲突。
 - **漂移检测**:对比真实文件与 `lastApplied` 快照,不一致即标记漂移。
 
@@ -219,7 +224,7 @@ Claude Code 的配置分两类机制:
 
 ## 9. 测试策略
 
-- **单元**:JSON 合并、diff 计算、占位符替换、symlink 装配、反向导入解析——纯函数,易测。
+- **单元**:JSON 合并、diff 计算、密钥路由(hasSecrets 分流)、symlink 装配、反向导入解析——纯函数,易测。
 - **集成**:在临时目录造一套假 `~/.claude` 结构,跑"导入 → 拖拽 → Apply → 校验文件"全链路。
 - **回归**:针对真实 `~/.claude.json` 的脱敏样本,确保合并不丢字段。
 - 渲染层 UI 交互 v1 以手测为主,核心逻辑全部下沉到主进程纯函数以便自动化测试。
@@ -229,7 +234,7 @@ Claude Code 的配置分两类机制:
 ## 10. 实现分期建议(非承诺)
 
 1. **M1 骨架**:Electron 壳 + 反向导入 + 只读展示现状(项目挂了啥),不写。
-2. **M2 MCP 装配 + Apply**:diff/备份/写 `.mcp.json` + `.env`,含全局 6 个 MCP 迁移。
+2. **M2 MCP 装配 + Apply**:diff/备份/按 `hasSecrets` 写 `.mcp.json` 或 `~/.claude.json` 项目本地作用域,含全局 6 个 MCP 迁移。
 3. **M3 Skills + Plugins + 配置片段**。
 4. **M4 Profile、漂移检测、回滚 UI 打磨**。
 
