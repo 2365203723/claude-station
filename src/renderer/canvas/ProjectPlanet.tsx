@@ -11,55 +11,48 @@ interface ProjectPlanetData extends PlanetPosition {
   draggingMcpId: string | null;
   isDragOver: boolean;
   onDropMcp?: (path: string, mcpId: string) => void;
+  onUnassignMcp?: (path: string, mcpId: string) => void;
   onSelect?: () => void;
 }
 
 export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
   const { name, mcp = [], planetRadius, orbitRadius, draggingMcpId, isDragOver } = data;
   const library = data.libraryMcp ?? {};
-
   const satAngle = (idx: number) => (idx / Math.max(mcp.length, 1)) * 2 * Math.PI - Math.PI / 2;
 
   return (
-    <div
-      onClick={() => data.onSelect?.()}
-      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
-      onDrop={e => {
-        const id = e.dataTransfer.getData('application/x-mcp-id');
-        if (id && data.onDropMcp) data.onDropMcp(data.path, id);
-      }}
-      style={{
-        width: planetRadius * 2 + orbitRadius * 2 + 20,
-        height: planetRadius * 2 + orbitRadius * 2 + 20,
-        position: 'relative',
-        cursor: 'pointer',
-      }}>
-      {/* Gravity glow on drag-over */}
+    <div style={{
+      width: planetRadius * 2 + orbitRadius * 2 + 20,
+      height: planetRadius * 2 + orbitRadius * 2 + 20,
+      position: 'relative',
+    }}>
+      {/* Gravity glow */}
       {isDragOver && (
         <div style={{
           position: 'absolute', inset: 0, borderRadius: '50%',
           background: 'radial-gradient(circle, var(--gravity-glow), transparent 70%)',
-          opacity: .7, zIndex: 0, transition: 'opacity 0.2s ease',
+          opacity: .7, zIndex: 0, pointerEvents: 'none',
         }} />
       )}
 
-      {/* Orbit line */}
+      {/* Orbit ring */}
       {mcp.length > 0 && (
         <div style={{
-          position: 'absolute',
-          left: '50%', top: '50%',
+          position: 'absolute', left: '50%', top: '50%',
           width: orbitRadius * 2 + planetRadius * 2,
           height: orbitRadius * 2 + planetRadius * 2,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
           border: `1px solid ${isDragOver ? 'var(--orbit-line-active)' : 'var(--orbit-line)'}`,
-          zIndex: 0, pointerEvents: 'none', transition: 'border-color 0.2s ease',
+          zIndex: 0, pointerEvents: 'none',
+          transition: 'border-color 0.3s cubic-bezier(0.34,1.56,0.64,1)',
         }} />
       )}
 
-      {/* Planet body */}
+      {/* Planet body — click here to select, drag to move */}
       <div
         className="serif"
+        onClick={() => data.onSelect?.()}
         style={{
           position: 'absolute', left: '50%', top: '50%',
           width: planetRadius * 2, height: planetRadius * 2,
@@ -71,9 +64,12 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
           border: '1px solid var(--glass-border)',
           boxShadow: `${isDragOver ? '0 0 28px var(--accent),' : ''} var(--glass-shadow), inset 0 2px 14px var(--glass-highlight)`,
           zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', transition: 'box-shadow .2s ease',
+          justifyContent: 'center',
+          transition: 'box-shadow 0.3s cubic-bezier(0.34,1.56,0.64,1), transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
           fontSize: Math.max(11, Math.round(planetRadius / 3.5)),
           fontWeight: 600, color: 'var(--text-primary)',
+          cursor: 'pointer',
+          userSelect: 'none',
         }}>
         <span>{name}</span>
         <span style={{ fontSize: Math.max(9, Math.round(planetRadius / 5)),
@@ -87,7 +83,7 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
         )}
       </div>
 
-      {/* Satellite capsules */}
+      {/* Satellites */}
       {mcp.map((m, i) => {
         const a = satAngle(i);
         const halfW = planetRadius + orbitRadius + 10;
@@ -97,18 +93,33 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
         return (
           <div key={m.id} style={{
             position: 'absolute', left: sx, top: sy,
-            transform: 'translate(-50%,-50%)', zIndex: 3, pointerEvents: 'none',
+            transform: 'translate(-50%,-50%) scale(1)',
+            zIndex: 3,
+            animation: `satelliteLand 0.4s cubic-bezier(0.34,1.56,0.64,1) both`,
           }}>
-            <McpSatellite label={m.id} hasSecrets={m.hasSecrets} status={m.status} />
+            {/* 可点击卫星：hover 显示 ×，点击撤销 */}
+            <div style={{ position: 'relative', display: 'inline-block', cursor:'default' }}>
+              <div onClick={(e) => { e.stopPropagation(); data.onUnassignMcp?.(data.path, m.id); }}
+                style={{
+                  position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%',
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, color: 'var(--text-muted)', cursor: 'pointer',
+                  opacity: 0, transition: 'opacity 0.2s ease',
+                  zIndex: 5,
+                }}
+                className="satellite-x"
+              >×</div>
+              <McpSatellite label={m.id} hasSecrets={m.hasSecrets} status={m.status} />
+            </div>
           </div>
         );
       })}
 
-      {/* Snap preview when dragging */}
+      {/* Snap preview */}
       {isDragOver && draggingMcpId && library[draggingMcpId] && (
         <div style={{
-          position: 'absolute',
-          left: '50%', top: '50%',
+          position: 'absolute', left: '50%', top: '50%',
           transform: `translate(-50%,-50%) translateY(-${planetRadius + orbitRadius - 6}px)`,
           zIndex: 4, pointerEvents: 'none', opacity: .85,
         }}>
@@ -116,6 +127,17 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
           <span style={{ fontSize: 10, color: 'var(--state-pending)', marginLeft: 4 }}>+</span>
         </div>
       )}
+
+      {/* HTML5 DnD overlay — 拦截来自 LibraryRail 的拖拽，不干扰 React Flow */}
+      <div
+        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+        onDrop={e => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('application/x-mcp-id');
+          if (id && data.onDropMcp) data.onDropMcp(data.path, id);
+        }}
+        style={{ position: 'absolute', inset: 0, zIndex: 10 }}
+      />
     </div>
   );
 }

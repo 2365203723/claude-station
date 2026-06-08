@@ -59,3 +59,18 @@ body {
   background: var(--bg-canvas);
 }
 h1, h2, h3, .serif { font-family: var(--font-serif); }
+
+/* iOS 式卫星着陆动画 */
+@keyframes satelliteLand {
+  0% { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+  60% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+}
+/* 卫星悬停：× 按钮淡入 */
+.satellite-x:hover { opacity: 1 !important; }
+div:hover > div > .satellite-x { opacity: 1 !important; }
+/* 行星悬停提升 */
+@keyframes planetFloat {
+  0%,100% { transform: translate(-50%,-50%) translateY(0); }
+  50% { transform: translate(-50%,-50%) translateY(-2px); }
+}

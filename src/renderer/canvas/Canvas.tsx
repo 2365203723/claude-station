@@ -15,12 +15,13 @@ function statusOf(mcpId: string, project: ProjectState, assignedIds: string[], l
   return 'pending';
 }
 
-export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp, draggingMcpId, pendingAssignments }: {
+export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp, onUnassignMcp, draggingMcpId, pendingAssignments }: {
   projects: ProjectState[];
   desiredMcp: Record<string, LibraryMcp>;
   lastApplied: Record<string, { mcpJson: Record<string,any>; localScope: Record<string,any> }>;
   onSelect: (p: ProjectState) => void;
   onDropMcp?: (path: string, mcpId: string) => void;
+  onUnassignMcp?: (path: string, mcpId: string) => void;
   draggingMcpId: string | null;
   pendingAssignments?: Record<string, { mcp: string[] }>;
 }) {
@@ -62,14 +63,15 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp,
         draggingMcpId,
         isDragOver: false,
         onDropMcp,
+        onUnassignMcp,
         onSelect: () => onSelect(p),
       },
     };
-  })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingMcpId, onDropMcp, onSelect]);
+  })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingMcpId, onDropMcp, onUnassignMcp, onSelect]);
 
   return (
     <div style={{ flex: 1, height: '100%' }}>
-      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} fitView nodesDraggable={true}>
+      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} fitView nodesDraggable={true} selectNodesOnDrag={false}>
         <Background
           variant={BackgroundVariant.Dots} gap={28} size={1.2}
           color="var(--orbit-line)"

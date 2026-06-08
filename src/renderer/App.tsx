@@ -42,6 +42,10 @@ export function App() {
     setDesired(await window.station.assign(path, mcpId));
   }, []);
 
+  const onUnassignMcp = useCallback(async (path: string, mcpId: string) => {
+    setDesired(await window.station.unassign(path, mcpId));
+  }, []);
+
   const openDiff = async () => setPlan(await window.station.plan(allProjectPaths));
   const confirmApply = async () => { await window.station.apply(allProjectPaths); setPlan(null); await reload(); };
   const confirmRetire = async () => {
@@ -77,6 +81,7 @@ export function App() {
           lastApplied={desired?.lastApplied ?? {}}
           onSelect={setSelected}
           onDropMcp={onDropMcp}
+          onUnassignMcp={onUnassignMcp}
           draggingMcpId={draggingMcpId}
           pendingAssignments={desired?.assignments}
         />
