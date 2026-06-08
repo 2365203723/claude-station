@@ -14,6 +14,16 @@
   --font-serif: 'Source Serif 4', Georgia, serif;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --glass-surface: rgba(251,250,247,.38);
+  --glass-surface-strong: rgba(251,250,247,.55);
+  --glass-border: rgba(255,255,255,.68);
+  --glass-highlight: rgba(255,255,255,.72);
+  --glass-shadow: 0 16px 48px rgba(90,70,45,.14);
+  --planet-bg: radial-gradient(circle at 30% 22%,rgba(255,255,255,.88),rgba(251,250,247,.34) 38%,rgba(217,119,87,.22) 68%,rgba(140,100,70,.14));
+  --orbit-line: rgba(217,119,87,.22);
+  --orbit-line-active: rgba(217,119,87,.48);
+  --gravity-glow: rgba(217,119,87,.18);
+  --space-dust: radial-gradient(rgba(160,130,100,.10) 1px,transparent 1px);
 }
 
 [data-theme="dark"] {
@@ -29,6 +39,16 @@
   --state-applied: #7E9874;
   --state-pending: #D9AE6E;
   --state-drift: #D17354;
+  --glass-surface: rgba(48,45,41,.38);
+  --glass-surface-strong: rgba(48,45,41,.55);
+  --glass-border: rgba(255,255,255,.14);
+  --glass-highlight: rgba(255,255,255,.18);
+  --glass-shadow: 0 16px 48px rgba(0,0,0,.35);
+  --planet-bg: radial-gradient(circle at 30% 20%,rgba(255,255,255,.55),rgba(224,138,107,.28) 34%,rgba(40,36,33,.42) 70%);
+  --orbit-line: rgba(224,138,107,.28);
+  --orbit-line-active: rgba(224,138,107,.56);
+  --gravity-glow: rgba(224,138,107,.14);
+  --space-dust: radial-gradient(rgba(255,255,255,.12) 1px,transparent 1px);
 }
 
 * { box-sizing: border-box; }
