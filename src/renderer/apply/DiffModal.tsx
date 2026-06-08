@@ -1,6 +1,14 @@
 import React from 'react';
 import type { ApplyPlan } from '../../main/station/types';
 
+const KIND_LABEL: Record<string, string> = {
+  mcpjson: '.mcp.json',
+  localscope: '本地作用域',
+  skills: 'Skills (symlink)',
+  settings: 'settings.json',
+  claudemd: 'CLAUDE.md',
+};
+
 export function DiffModal({ plan, onConfirm, onCancel }: {
   plan: ApplyPlan | null; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -16,7 +24,7 @@ export function DiffModal({ plan, onConfirm, onCancel }: {
         {plan.changes.map((c, i) => (
           <div key={i} style={{ marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
-              {c.kind === 'localscope' ? '本地作用域' : '.mcp.json'} · {c.file}
+              {KIND_LABEL[c.kind] ?? c.kind} · {c.file}
             </div>
             {c.added.map(id => <div key={'a'+id} style={{ fontSize: 12, color: 'var(--state-applied)' }}>+ {id}</div>)}
             {c.changed.map(id => <div key={'c'+id} style={{ fontSize: 12, color: 'var(--state-pending)' }}>~ {id}</div>)}

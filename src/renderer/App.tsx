@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Canvas } from './canvas/Canvas';
+import type { DragItem } from './canvas/Canvas';
 import { DetailPanel } from './panel/DetailPanel';
 import { LibraryRail } from './rail/LibraryRail';
 import { ApplyBar } from './apply/ApplyBar';
@@ -18,7 +19,7 @@ export function App() {
   const [pendingCount, setPendingCount] = useState(0);
   const [globalStatus, setGlobalStatus] = useState<{ eligible: string[]; blocked: string[] } | null>(null);
   const [retireId, setRetireId] = useState<string | null>(null);
-  const [draggingMcpId, setDraggingMcpId] = useState<string | null>(null);
+  const [draggingItem, setDraggingItem] = useState<DragItem | null>(null);
 
   const reload = useCallback(async () => {
     const [inferred, d, gs] = await Promise.all([
@@ -31,11 +32,11 @@ export function App() {
   useEffect(() => { reload(); }, [reload]);
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
-  // 全局 dragover: 让画布任何位置都允许接收 LibraryRail 的 MCP 拖放
-  // 不放节点级的 onDragOver,避免干扰 React Flow 的节点拖拽
+  // 全局 dragover: 让画布任何位置都允许接收 LibraryRail 的能力拖放
   useEffect(() => {
     const handler = (e: DragEvent) => {
-      if (e.dataTransfer?.types.includes('application/x-mcp-id')) {
+      if (e.dataTransfer?.types.includes('application/x-station-item') ||
+          e.dataTransfer?.types.includes('application/x-mcp-id')) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
       }
@@ -51,8 +52,16 @@ export function App() {
     window.station.plan(allProjectPaths).then(p => setPendingCount(p.changes.length));
   }, [desired]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onDropMcp = useCallback(async (path: string, mcpId: string) => {
-    setDesired(await window.station.assign(path, mcpId));
+  const onDropItem = useCallback(async (path: string, kind: string, id: string) => {
+    if (kind === 'mcp') {
+      setDesired(await window.station.assign(path, id));
+    } else if (kind === 'skill') {
+      setDesired(await window.station.assignSkill(path, id));
+    } else if (kind === 'plugin') {
+      setDesired(await window.station.assignPlugin(path, id));
+    } else if (kind === 'snippet') {
+      setDesired(await window.station.assignSnippet(path, id));
+    }
   }, []);
 
   const onUnassignMcp = useCallback(async (path: string, mcpId: string) => {
@@ -67,7 +76,7 @@ export function App() {
     await reload();
   };
 
-  const libMcp = desired ? Object.values(desired.library.mcp) : [];
+  const lib = desired?.library;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -83,7 +92,14 @@ export function App() {
       </header>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', width: 200 }}>
-          <LibraryRail mcp={libMcp} onDragStartMcp={setDraggingMcpId} onDragEndMcp={() => setDraggingMcpId(null)} />
+          <LibraryRail
+            mcp={lib ? Object.values(lib.mcp) : []}
+            skills={lib ? Object.values(lib.skills) : []}
+            plugins={lib ? Object.values(lib.plugins) : []}
+            snippets={lib ? Object.values(lib.snippets) : []}
+            onDragStartItem={(kind, id) => setDraggingItem({ kind, id })}
+            onDragEndItem={() => setDraggingItem(null)}
+          />
           <div style={{ padding: '0 16px' }}>
             <GlobalCleanupSection status={globalStatus} onRetire={setRetireId} />
           </div>
@@ -93,9 +109,9 @@ export function App() {
           desiredMcp={desired?.library.mcp ?? {}}
           lastApplied={desired?.lastApplied ?? {}}
           onSelect={setSelected}
-          onDropMcp={onDropMcp}
+          onDropItem={onDropItem}
           onUnassignMcp={onUnassignMcp}
-          draggingMcpId={draggingMcpId}
+          draggingItem={draggingItem}
           pendingAssignments={desired?.assignments}
         />
         <DetailPanel project={selected} />

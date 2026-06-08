@@ -7,7 +7,7 @@ function state() {
   const s = emptyState();
   s.library.mcp['exa'] = { id: 'exa', def: { command: 'exa' }, hasSecrets: false };
   s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-  s.assignments['/p'] = { mcp: ['exa', 'firecrawl'] };
+  s.assignments['/p'] = { mcp: ['exa', 'firecrawl'], skills: [], plugins: [], snippets: [] };
   return s;
 }
 
@@ -23,7 +23,7 @@ describe('computeApplyPlan', () => {
   });
   it('no changes when assignment equals lastApplied', () => {
     const s = state();
-    s.lastApplied['/p'] = { mcpJson: { exa: { command: 'exa' } }, localScope: { firecrawl: { command: 'npx', env: { K: 'v' } } } };
+    s.lastApplied['/p'] = { mcpJson: { exa: { command: 'exa' } }, localScope: { firecrawl: { command: 'npx', env: { K: 'v' } } }, skills: [], plugins: [], snippets: [] };
     const plan = computeApplyPlan(s, ['/p'], '/home');
     expect(plan.changes).toEqual([]);
   });

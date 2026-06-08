@@ -5,13 +5,14 @@ import type { InferredState } from '../../src/main/types';
 const inferred: InferredState = {
   userScope: {
     mcp: [{ id: 'firecrawl', scope: 'user', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true }],
-    skills: [], plugins: [],
+    skills: [{ id: 'graphify', scope: 'user', path: '/home/.claude/skills/graphify' }],
+    plugins: [{ id: 'superpowers@official', enabled: true }],
   },
   projects: [
     { path: '/p1', mcp: [
         { id: 'firecrawl', scope: 'project-local', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true },
         { id: 'exa', scope: 'project-mcpjson', def: { command: 'exa' }, hasSecrets: false },
-      ], skills: [], plugins: [] },
+      ], skills: [{ id: 'my-skill', scope: 'project', path: '/p1/.claude/skills/my-skill' }], plugins: [{ id: 'p1-plugin@org', enabled: true }] },
     { path: '/p2', mcp: [], skills: [], plugins: [] },
   ],
 };
@@ -30,5 +31,16 @@ describe('seedStateFromInferred', () => {
   });
   it('lastApplied starts empty', () => {
     expect(seedStateFromInferred(inferred).lastApplied).toEqual({});
+  });
+  it('library contains user-scope skills and plugins', () => {
+    const s = seedStateFromInferred(inferred);
+    expect(s.library.skills['graphify']).toEqual({ id: 'graphify', name: 'graphify', sourcePath: '/home/.claude/skills/graphify' });
+    expect(s.library.plugins['superpowers@official']).toEqual({ id: 'superpowers@official' });
+  });
+  it('assignments include skills, plugins, and empty snippets', () => {
+    const s = seedStateFromInferred(inferred);
+    expect(s.assignments['/p1'].skills).toEqual(['my-skill']);
+    expect(s.assignments['/p1'].plugins).toEqual(['p1-plugin@org']);
+    expect(s.assignments['/p1'].snippets).toEqual([]);
   });
 });

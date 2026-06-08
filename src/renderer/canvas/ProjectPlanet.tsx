@@ -3,29 +3,41 @@ import type { NodeProps } from 'reactflow';
 import { McpSatellite, type McpStatus } from './McpSatellite';
 import type { LibraryMcp } from '../../main/station/types';
 import type { PlanetPosition } from './orbitLayout';
+import type { DragItem } from './Canvas';
 
 interface ProjectPlanetData extends PlanetPosition {
   name: string;
   mcp: { id: string; hasSecrets: boolean; status: McpStatus }[];
   libraryMcp: Record<string, LibraryMcp>;
-  draggingMcpId: string | null;
+  draggingItem: DragItem | null;
   isDragOver: boolean;
-  onDropMcp?: (path: string, mcpId: string) => void;
+  onDropItem?: (path: string, kind: string, id: string) => void;
   onUnassignMcp?: (path: string, mcpId: string) => void;
   onSelect?: () => void;
 }
 
 export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
-  const { name, mcp = [], planetRadius, orbitRadius, draggingMcpId, isDragOver } = data;
+  const { name, mcp = [], planetRadius, orbitRadius, draggingItem, isDragOver } = data;
   const library = data.libraryMcp ?? {};
+  const draggingMcpId = draggingItem?.kind === 'mcp' ? draggingItem.id : null;
   const satAngle = (idx: number) => (idx / Math.max(mcp.length, 1)) * 2 * Math.PI - Math.PI / 2;
 
   return (
     <div
       onDrop={e => {
         e.preventDefault();
+        // 新格式: application/x-station-item {kind, id}
+        const raw = e.dataTransfer.getData('application/x-station-item');
+        if (raw) {
+          try {
+            const item = JSON.parse(raw);
+            if (item.kind && item.id && data.onDropItem) data.onDropItem(data.path, item.kind, item.id);
+            return;
+          } catch { /* fall through to legacy */ }
+        }
+        // 旧格式: application/x-mcp-id (向后兼容)
         const id = e.dataTransfer.getData('application/x-mcp-id');
-        if (id && data.onDropMcp) data.onDropMcp(data.path, id);
+        if (id && data.onDropItem) data.onDropItem(data.path, 'mcp', id);
       }}
       style={{ position: 'relative', width: planetRadius * 2 + orbitRadius * 2 + 20, height: planetRadius * 2 + orbitRadius * 2 + 20 }}
     >

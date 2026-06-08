@@ -17,7 +17,7 @@ describe('executeApply', () => {
     const s = emptyState();
     s.library.mcp['exa'] = { id: 'exa', def: { command: 'exa' }, hasSecrets: false };
     s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[proj] = { mcp: ['exa', 'firecrawl'] };
+    s.assignments[proj] = { mcp: ['exa', 'firecrawl'], skills: [], plugins: [], snippets: [] };
     saveState(s, home);
 
     executeApply(s, [proj], '20260608-010101', home);
@@ -48,7 +48,7 @@ describe('executeApply', () => {
     writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { globalA: { command: 'g' } } }));
     const s = emptyState();
     s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[proj] = { mcp: ['firecrawl'] };
+    s.assignments[proj] = { mcp: ['firecrawl'], skills: [], plugins: [], snippets: [] };
     saveState(s, home);
 
     expect(() => executeApply(s, [proj], '20260608-030303', home)).not.toThrow();
@@ -68,8 +68,8 @@ describe('executeApply', () => {
     writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { g: { command: 'g' } } }));
     const s = emptyState();
     s.library.mcp['fc'] = { id: 'fc', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[a] = { mcp: ['fc'] };
-    s.assignments[b] = { mcp: ['fc'] };
+    s.assignments[a] = { mcp: ['fc'], skills: [], plugins: [], snippets: [] };
+    s.assignments[b] = { mcp: ['fc'], skills: [], plugins: [], snippets: [] };
     saveState(s, home);
 
     executeApply(s, [a, b], '20260608-040404', home);

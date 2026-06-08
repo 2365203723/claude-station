@@ -5,8 +5,8 @@ import { emptyState } from '../../src/main/station/store';
 describe('landedGlobalIds', () => {
   it('collects ids from both mcpJson and localScope of all projects lastApplied', () => {
     const s = emptyState();
-    s.lastApplied['/a'] = { mcpJson: { exa: { command: 'exa' } }, localScope: { firecrawl: { command: 'npx' } } };
-    s.lastApplied['/b'] = { mcpJson: {}, localScope: { memory: { command: 'm' } } };
+    s.lastApplied['/a'] = { mcpJson: { exa: { command: 'exa' } }, localScope: { firecrawl: { command: 'npx' } }, skills: [], plugins: [], snippets: [] };
+    s.lastApplied['/b'] = { mcpJson: {}, localScope: { memory: { command: 'm' } }, skills: [], plugins: [], snippets: [] };
     expect([...landedGlobalIds(s)].sort()).toEqual(['exa', 'firecrawl', 'memory']);
   });
   it('empty when nothing applied', () => {
@@ -17,7 +17,7 @@ describe('landedGlobalIds', () => {
 describe('globalCleanupStatus', () => {
   it('splits top-level ids into eligible (landed) and blocked (not landed)', () => {
     const s = emptyState();
-    s.lastApplied['/a'] = { mcpJson: {}, localScope: { firecrawl: { command: 'npx' } } };
+    s.lastApplied['/a'] = { mcpJson: {}, localScope: { firecrawl: { command: 'npx' } }, skills: [], plugins: [], snippets: [] };
     const status = globalCleanupStatus(['firecrawl', 'memory', 'codegraph'], s);
     expect(status.eligible).toEqual(['firecrawl']);
     expect(status.blocked.sort()).toEqual(['codegraph', 'memory']);

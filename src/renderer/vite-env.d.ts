@@ -9,6 +9,12 @@ declare global {
       loadDesired: () => Promise<StationState>;
       assign: (projectPath: string, mcpId: string) => Promise<StationState>;
       unassign: (projectPath: string, mcpId: string) => Promise<StationState>;
+      assignSkill: (projectPath: string, skillId: string) => Promise<StationState>;
+      unassignSkill: (projectPath: string, skillId: string) => Promise<StationState>;
+      assignPlugin: (projectPath: string, pluginId: string) => Promise<StationState>;
+      unassignPlugin: (projectPath: string, pluginId: string) => Promise<StationState>;
+      assignSnippet: (projectPath: string, snippetId: string) => Promise<StationState>;
+      unassignSnippet: (projectPath: string, snippetId: string) => Promise<StationState>;
       plan: (projectPaths: string[]) => Promise<ApplyPlan>;
       apply: (projectPaths: string[]) => Promise<StationState>;
       globalStatus: () => Promise<{ eligible: string[]; blocked: string[] }>;

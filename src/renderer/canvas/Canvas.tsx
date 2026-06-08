@@ -15,14 +15,16 @@ function statusOf(mcpId: string, project: ProjectState, assignedIds: string[], l
   return 'pending';
 }
 
-export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp, onUnassignMcp, draggingMcpId, pendingAssignments }: {
+export interface DragItem { kind: string; id: string; }
+
+export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropItem, onUnassignMcp, draggingItem, pendingAssignments }: {
   projects: ProjectState[];
   desiredMcp: Record<string, LibraryMcp>;
   lastApplied: Record<string, { mcpJson: Record<string,any>; localScope: Record<string,any> }>;
   onSelect: (p: ProjectState) => void;
-  onDropMcp?: (path: string, mcpId: string) => void;
+  onDropItem?: (path: string, kind: string, id: string) => void;
   onUnassignMcp?: (path: string, mcpId: string) => void;
-  draggingMcpId: string | null;
+  draggingItem: DragItem | null;
   pendingAssignments?: Record<string, { mcp: string[] }>;
 }) {
   const layout = useMemo(() => {
@@ -50,7 +52,6 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp,
     return {
       id: l.path,
       type: 'planet',
-      draggable: true,
       position: { x: l.x - l.safeRadius, y: l.y - l.safeRadius },
       data: {
         ...l,
@@ -60,32 +61,38 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp,
           ...pending.map(id => ({ id, hasSecrets: desiredMcp[id]?.hasSecrets ?? false, status: 'pending' as McpStatus })),
         ],
         libraryMcp: desiredMcp,
-        draggingMcpId,
-        isDragOver: draggingMcpId !== null,
-        onDropMcp,
+        draggingItem,
+        isDragOver: draggingItem !== null,
+        onDropItem,
         onUnassignMcp,
         onSelect: () => onSelect(p),
       },
     };
-  })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingMcpId, onDropMcp, onUnassignMcp, onSelect]);
+  })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingItem, onDropItem, onUnassignMcp, onSelect]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
 
-  // 当项目/布局 change 时同步节点(data+位置),但保留用户拖拽后的位置
   useEffect(() => {
     setNodes(current => {
-      const byId = new Map(computedNodes.map(n => [n.id, n]));
-      return current.map(n => {
-        const c = byId.get(n.id);
-        if (!c) return n; // 已删除的节点,留着让它自然清理
-        return { ...n, data: c.data, position: c.position }; // 覆盖 data,复位位置
+      const prevById = new Map(current.map(n => [n.id, n]));
+      return computedNodes.map(c => {
+        const prev = prevById.get(c.id);
+        return prev ? { ...c, position: prev.position } : c;
       });
     });
   }, [computedNodes, setNodes]);
 
   return (
     <div style={{ flex: 1, height: '100%' }}>
-      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView onNodeClick={(_, n) => n.data?.onSelect?.()}>
+      <ReactFlow
+        nodes={nodes}
+        edges={[]}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        nodesDraggable
+        fitView
+        onNodeClick={(_, n) => n.data?.onSelect?.()}
+      >
         <Background
           variant={BackgroundVariant.Dots} gap={28} size={1.2}
           color="var(--orbit-line)"
