@@ -1,0 +1,116 @@
+import React from 'react';
+import type { NodeProps } from 'reactflow';
+import { McpSatellite, type McpStatus } from './McpSatellite';
+import type { LibraryMcp } from '../../main/station/types';
+import type { PlanetPosition } from './orbitLayout';
+
+interface ProjectPlanetData extends PlanetPosition {
+  name: string;
+  mcp: { id: string; hasSecrets: boolean; status: McpStatus }[];
+  libraryMcp: Record<string, LibraryMcp>;
+  draggingMcpId: string | null;
+  isDragOver: boolean;
+  onDropMcp?: (path: string, mcpId: string) => void;
+  onSelect?: () => void;
+}
+
+export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
+  const { name, mcp = [], planetRadius, orbitRadius, draggingMcpId, isDragOver } = data;
+  const library = data.libraryMcp ?? {};
+
+  const satAngle = (idx: number) => (idx / Math.max(mcp.length, 1)) * 2 * Math.PI - Math.PI / 2;
+
+  return (
+    <div
+      onClick={() => data.onSelect?.()}
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+      onDrop={e => {
+        const id = e.dataTransfer.getData('application/x-mcp-id');
+        if (id && data.onDropMcp) data.onDropMcp(data.path, id);
+      }}
+      style={{
+        width: planetRadius * 2 + orbitRadius * 2 + 20,
+        height: planetRadius * 2 + orbitRadius * 2 + 20,
+        position: 'relative',
+        cursor: 'pointer',
+      }}>
+      {/* Gravity glow on drag-over */}
+      {isDragOver && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: 'radial-gradient(circle, var(--gravity-glow), transparent 70%)',
+          opacity: .7, zIndex: 0,
+        }} />
+      )}
+
+      {/* Orbit line */}
+      {mcp.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '50%',
+          width: orbitRadius * 2 + planetRadius * 2,
+          height: orbitRadius * 2 + planetRadius * 2,
+          transform: 'translate(-50%,-50%)',
+          borderRadius: '50%',
+          border: `1px solid ${isDragOver ? 'var(--orbit-line-active)' : 'var(--orbit-line)'}`,
+          zIndex: 0, pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Planet body */}
+      <div
+        className="serif"
+        style={{
+          position: 'absolute', left: '50%', top: '50%',
+          width: planetRadius * 2, height: planetRadius * 2,
+          transform: 'translate(-50%,-50%)',
+          background: 'var(--planet-bg)',
+          backdropFilter: 'blur(18px) saturate(1.3)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
+          borderRadius: '50%',
+          border: '1px solid var(--glass-border)',
+          boxShadow: `${isDragOver ? '0 0 28px var(--accent),' : ''} var(--glass-shadow), inset 0 2px 14px var(--glass-highlight)`,
+          zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', transition: 'box-shadow .2s ease',
+          fontSize: Math.max(11, Math.round(planetRadius / 3.5)),
+          fontWeight: 600, color: 'var(--text-primary)',
+        }}>
+        <span>{name}</span>
+        <span style={{ fontSize: Math.max(9, Math.round(planetRadius / 5)),
+          color: 'var(--text-muted)', fontWeight: 400 }}>
+          {mcp.length} MCP
+        </span>
+        {mcp.filter(m => m.hasSecrets).length > 0 && (
+          <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>
+            {mcp.filter(m => m.hasSecrets).length} 🔑
+          </span>
+        )}
+      </div>
+
+      {/* Satellite capsules */}
+      {mcp.map((m, i) => {
+        const a = satAngle(i);
+        const sx = planetRadius + orbitRadius + Math.cos(a) * (orbitRadius + planetRadius / 2) + orbitRadius + planetRadius - 8;
+        const sy = planetRadius + orbitRadius + Math.sin(a) * (orbitRadius + planetRadius / 2) + orbitRadius + planetRadius - 8;
+        return (
+          <div key={m.id} style={{ position: 'absolute', left: sx - 12, top: sy + 3, transform: 'translate(-50%,-50%)', zIndex: 3, pointerEvents: 'none' }}>
+            <McpSatellite label={m.id} hasSecrets={m.hasSecrets} status={m.status} />
+          </div>
+        );
+      })}
+
+      {/* Snap preview when dragging */}
+      {isDragOver && draggingMcpId && library[draggingMcpId] && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '50%',
+          transform: `translate(-50%,-50%) translateY(-${planetRadius + orbitRadius - 6}px)`,
+          zIndex: 4, pointerEvents: 'none', opacity: .85,
+        }}>
+          <McpSatellite label={draggingMcpId} hasSecrets={library[draggingMcpId].hasSecrets} status="pending" />
+          <span style={{ fontSize: 10, color: 'var(--state-pending)', marginLeft: 4 }}>+</span>
+        </div>
+      )}
+    </div>
+  );
+}
