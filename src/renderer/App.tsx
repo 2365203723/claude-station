@@ -107,6 +107,9 @@ export function App() {
         <Canvas
           projects={projects}
           desiredMcp={desired?.library.mcp ?? {}}
+          desiredSkills={desired?.library.skills ?? {}}
+          desiredPlugins={desired?.library.plugins ?? {}}
+          desiredSnippets={desired?.library.snippets ?? {}}
           lastApplied={desired?.lastApplied ?? {}}
           onSelect={setSelected}
           onDropItem={onDropItem}

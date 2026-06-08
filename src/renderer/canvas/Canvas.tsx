@@ -4,7 +4,7 @@ import 'reactflow/dist/style.css';
 import { ProjectPlanet } from './ProjectPlanet';
 import { computeOrbitLayout } from './orbitLayout';
 import type { ProjectState } from '../../main/types';
-import type { LibraryMcp } from '../../main/station/types';
+import type { LibraryMcp, LibrarySkill, LibraryPlugin, LibrarySnippet } from '../../main/station/types';
 import type { McpStatus } from './McpSatellite';
 
 const nodeTypes = { planet: ProjectPlanet };
@@ -17,15 +17,25 @@ function statusOf(mcpId: string, project: ProjectState, assignedIds: string[], l
 
 export interface DragItem { kind: string; id: string; }
 
-export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropItem, onUnassignMcp, draggingItem, pendingAssignments }: {
+interface AssignmentSnapshot {
+  mcp: string[];
+  skills: string[];
+  plugins: string[];
+  snippets: string[];
+}
+
+export function Canvas({ projects, desiredMcp, desiredSkills, desiredPlugins, desiredSnippets, lastApplied, onSelect, onDropItem, onUnassignMcp, draggingItem, pendingAssignments }: {
   projects: ProjectState[];
   desiredMcp: Record<string, LibraryMcp>;
+  desiredSkills: Record<string, LibrarySkill>;
+  desiredPlugins: Record<string, LibraryPlugin>;
+  desiredSnippets: Record<string, LibrarySnippet>;
   lastApplied: Record<string, { mcpJson: Record<string,any>; localScope: Record<string,any> }>;
   onSelect: (p: ProjectState) => void;
   onDropItem?: (path: string, kind: string, id: string) => void;
   onUnassignMcp?: (path: string, mcpId: string) => void;
   draggingItem: DragItem | null;
-  pendingAssignments?: Record<string, { mcp: string[] }>;
+  pendingAssignments?: Record<string, AssignmentSnapshot>;
 }) {
   const layout = useMemo(() => {
     const assignments = pendingAssignments ?? {};
@@ -41,14 +51,37 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropItem
     const assignments = pendingAssignments ?? {};
     return layout.map(l => {
     const p = projects.find(x => x.path === l.path)!;
-    const existing = p.mcp.map(m => m.id);
-    const pending = (assignments[l.path]?.mcp ?? []).filter(id => !existing.includes(id));
-    const assigned = p.mcp.map(m => m.id);
+    const a = assignments[l.path] ?? { mcp: [], skills: [], plugins: [], snippets: [] };
+
+    // MCP: inferred + pending
+    const inferredMcp = p.mcp.map(m => m.id);
+    const pendingMcp = a.mcp.filter(id => !inferredMcp.includes(id));
+    const allMCP = [...p.mcp.map(m => ({ id: m.id, hasSecrets: m.hasSecrets, status: statusOf(m.id, p, a.mcp, new Set()) })), ...pendingMcp.map(id => ({ id, hasSecrets: desiredMcp[id]?.hasSecrets ?? false, status: 'pending' as McpStatus }))];
+
     const applied = lastApplied[l.path];
     const landedIds = new Set<string>([
       ...Object.keys(applied?.mcpJson ?? {}),
       ...Object.keys(applied?.localScope ?? {}),
     ]);
+    // 更新 MCP status(需要 landedIds)
+    const mcpWithStatus = allMCP.map(m => ({
+      ...m,
+      status: !a.mcp.includes(m.id) ? 'global' as McpStatus : landedIds.has(m.id) ? 'applied' as McpStatus : 'pending' as McpStatus,
+    }));
+
+    // Skills: inferred + pending
+    const inferredSkills = p.skills.map(s => s.id);
+    const pendingSkills = a.skills.filter(id => !inferredSkills.includes(id));
+    const allSkills = [...inferredSkills, ...pendingSkills];
+
+    // Plugins: inferred(已启用) + pending
+    const inferredPlugins = p.plugins.filter(pl => pl.enabled).map(pl => pl.id);
+    const pendingPlugins = a.plugins.filter(id => !inferredPlugins.includes(id));
+    const allPlugins = [...inferredPlugins, ...pendingPlugins];
+
+    // Snippets: pending only(inferred state 不含 snippets)
+    const allSnippets = a.snippets;
+
     return {
       id: l.path,
       type: 'planet',
@@ -56,11 +89,14 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropItem
       data: {
         ...l,
         name: l.path.split('/').pop() || l.path,
-        mcp: [
-          ...p.mcp.map(m => ({ id: m.id, hasSecrets: m.hasSecrets, status: statusOf(m.id, p, assigned, landedIds) })),
-          ...pending.map(id => ({ id, hasSecrets: desiredMcp[id]?.hasSecrets ?? false, status: 'pending' as McpStatus })),
-        ],
+        mcp: mcpWithStatus,
+        skills: allSkills,
+        plugins: allPlugins,
+        snippets: allSnippets,
         libraryMcp: desiredMcp,
+        librarySkills: desiredSkills,
+        libraryPlugins: desiredPlugins,
+        librarySnippets: desiredSnippets,
         draggingItem,
         isDragOver: draggingItem !== null,
         onDropItem,
@@ -68,7 +104,7 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropItem
         onSelect: () => onSelect(p),
       },
     };
-  })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingItem, onDropItem, onUnassignMcp, onSelect]);
+  })}, [layout, projects, lastApplied, desiredMcp, desiredSkills, desiredPlugins, desiredSnippets, pendingAssignments, draggingItem, onDropItem, onUnassignMcp, onSelect]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
 
