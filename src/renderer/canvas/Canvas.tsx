@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import ReactFlow, { Background, BackgroundVariant, Controls } from 'reactflow';
+import React, { useMemo, useEffect } from 'react';
+import ReactFlow, { Background, BackgroundVariant, Controls, useNodesState } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ProjectPlanet } from './ProjectPlanet';
 import { computeOrbitLayout } from './orbitLayout';
@@ -35,7 +35,7 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp,
     return computeOrbitLayout(inputs);
   }, [projects, pendingAssignments]);
 
-  const nodes = useMemo(() => {
+  const computedNodes = useMemo(() => {
     const assignments = pendingAssignments ?? {};
     return layout.map(l => {
     const p = projects.find(x => x.path === l.path)!;
@@ -69,9 +69,23 @@ export function Canvas({ projects, desiredMcp, lastApplied, onSelect, onDropMcp,
     };
   })}, [layout, projects, lastApplied, desiredMcp, pendingAssignments, draggingMcpId, onDropMcp, onUnassignMcp, onSelect]);
 
+  const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
+
+  // 当项目/布局 change 时同步节点(data+位置),但保留用户拖拽后的位置
+  useEffect(() => {
+    setNodes(current => {
+      const byId = new Map(computedNodes.map(n => [n.id, n]));
+      return current.map(n => {
+        const c = byId.get(n.id);
+        if (!c) return n; // 已删除的节点,留着让它自然清理
+        return { ...n, data: c.data, position: c.position }; // 覆盖 data,复位位置
+      });
+    });
+  }, [computedNodes, setNodes]);
+
   return (
     <div style={{ flex: 1, height: '100%' }}>
-      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} fitView nodesDraggable={true} onNodeClick={(_, n) => n.data?.onSelect?.()}>
+      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView onNodeClick={(_, n) => n.data?.onSelect?.()}>
         <Background
           variant={BackgroundVariant.Dots} gap={28} size={1.2}
           color="var(--orbit-line)"
