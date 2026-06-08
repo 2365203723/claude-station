@@ -216,7 +216,7 @@ Claude Code 的配置分两类机制:
   },
   "profiles": { "<id>": { "name", "items": ["mcp:firecrawl", "skill:graphify"] } },
   "projects": {
-    "/Users/shawn/ecc": {
+    "/Users/example/my-project": {
       "assigned": ["mcp:firecrawl", "skill:graphify", "plugin:superpowers"],
       "lastApplied": { /* 上次 Apply 的快照,用于算 diff 和检测漂移 */ }
     }
