@@ -1,5 +1,8 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import type { ProjectState } from '../../main/types';
+import { springSmooth } from '../theme/springs';
+import { RubberScroll } from '../theme/RubberScroll';
 
 interface AssignmentData {
   mcp: string[]; skills: string[]; plugins: string[]; snippets: string[];
@@ -33,18 +36,26 @@ export function DetailPanel({ project, assignments, onUnassign }: {
   const allSnippets = a.snippets.map(id => ({ id, status: 'pending' as const }));
 
   return (
-    <aside style={panelStyle}>
-      <h2 className="serif" style={{ fontSize: 18, marginTop: 0 }}>
-        {project.path.split('/').pop()}
-      </h2>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all', marginBottom: 8 }}>{project.path}</div>
-      <Group title={`MCP (${allMcp.length})`} items={allMcp.map(m => m.id + (m.hasSecrets ? ' 🔑' : ''))} statuses={allMcp.map(m => m.status)} onRemove={onUnassign ? (id: string) => onUnassign('mcp', id) : undefined} />
-      <Group title={`Skills (${allSkills.length})`} items={allSkills.map(s => s.id)} statuses={allSkills.map(s => s.status)} onRemove={onUnassign ? (id: string) => onUnassign('skill', id) : undefined} />
-      <Group title={`Plugins (${allPlugins.length})`} items={allPlugins.map(p => p.id)} statuses={allPlugins.map(p => p.status)} onRemove={onUnassign ? (id: string) => onUnassign('plugin', id) : undefined} />
-      {allSnippets.length > 0 && (
-        <Group title={`配置片段 (${allSnippets.length})`} items={allSnippets.map(s => s.id)} statuses={allSnippets.map(s => s.status)} onRemove={onUnassign ? (id: string) => onUnassign('snippet', id) : undefined} />
-      )}
-    </aside>
+    <motion.aside
+      key={project.path}
+      initial={{ x: 24, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={springSmooth}
+      style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}
+    >
+      <RubberScroll style={{ height: '100%', overflowY: 'auto', padding: 20 }}>
+        <h2 className="serif" style={{ fontSize: 18, marginTop: 0 }}>
+          {project.path.split('/').pop()}
+        </h2>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all', marginBottom: 8 }}>{project.path}</div>
+        <Group title={`MCP (${allMcp.length})`} items={allMcp.map(m => m.id + (m.hasSecrets ? ' 🔑' : ''))} statuses={allMcp.map(m => m.status)} onRemove={onUnassign ? (id: string) => onUnassign('mcp', id) : undefined} />
+        <Group title={`Skills (${allSkills.length})`} items={allSkills.map(s => s.id)} statuses={allSkills.map(s => s.status)} onRemove={onUnassign ? (id: string) => onUnassign('skill', id) : undefined} />
+        <Group title={`Plugins (${allPlugins.length})`} items={allPlugins.map(p => p.id)} statuses={allPlugins.map(p => p.status)} onRemove={onUnassign ? (id: string) => onUnassign('plugin', id) : undefined} />
+        {allSnippets.length > 0 && (
+          <Group title={`配置片段 (${allSnippets.length})`} items={allSnippets.map(s => s.id)} statuses={allSnippets.map(s => s.status)} onRemove={onUnassign ? (id: string) => onUnassign('snippet', id) : undefined} />
+        )}
+      </RubberScroll>
+    </motion.aside>
   );
 }
 

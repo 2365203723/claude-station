@@ -23,7 +23,6 @@
   --orbit-line: rgba(217,119,87,.22);
   --orbit-line-active: rgba(217,119,87,.48);
   --gravity-glow: rgba(217,119,87,.18);
-  --space-dust: radial-gradient(rgba(160,130,100,.10) 1px,transparent 1px);
 }
 
 [data-theme="dark"] {
@@ -48,7 +47,6 @@
   --orbit-line: rgba(224,138,107,.28);
   --orbit-line-active: rgba(224,138,107,.56);
   --gravity-glow: rgba(224,138,107,.14);
-  --space-dust: radial-gradient(rgba(255,255,255,.12) 1px,transparent 1px);
 }
 
 * { box-sizing: border-box; }
@@ -60,17 +58,6 @@ body {
 }
 h1, h2, h3, .serif { font-family: var(--font-serif); }
 
-/* iOS 式卫星着陆动画 */
-@keyframes satelliteLand {
-  0% { transform: translate(-50%,-50%) scale(0); opacity: 0; }
-  60% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
-  100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
-}
-/* 卫星悬停：× 按钮淡入 */
+/* 卫星悬停：× 按钮淡入(着陆动画已迁移到 motion spring) */
 .satellite-x:hover { opacity: 1 !important; }
 div:hover > div > .satellite-x { opacity: 1 !important; }
-/* 行星悬停提升 */
-@keyframes planetFloat {
-  0%,100% { transform: translate(-50%,-50%) translateY(0); }
-  50% { transform: translate(-50%,-50%) translateY(-2px); }
-}

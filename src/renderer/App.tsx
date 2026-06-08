@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { Canvas } from './canvas/Canvas';
 import type { DragItem } from './canvas/Canvas';
 import { DetailPanel } from './panel/DetailPanel';
@@ -128,16 +129,20 @@ export function App() {
         />
         <DetailPanel project={selected} assignments={selected ? desired?.assignments[selected.path] : undefined} onUnassign={onUnassignItem} />
       </div>
-      <DiffModal plan={plan} onConfirm={confirmApply} onCancel={() => setPlan(null)} />
-      {retireId && (
-        <ConfirmModal
-          title={`退役全局 MCP:${retireId}`}
-          body={`将从 ~/.claude.json 顶层移除 ${retireId}。删除后,未显式装配此 MCP 的项目将不再自动获得它(它仍保留在库中,可随时装配给项目)。已自动备份,可回滚。`}
-          confirmLabel="确认退役"
-          onConfirm={confirmRetire}
-          onCancel={() => setRetireId(null)}
-        />
-      )}
+      <AnimatePresence>
+        {plan && <DiffModal plan={plan} onConfirm={confirmApply} onCancel={() => setPlan(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {retireId && (
+          <ConfirmModal
+            title={`退役全局 MCP:${retireId}`}
+            body={`将从 ~/.claude.json 顶层移除 ${retireId}。删除后,未显式装配此 MCP 的项目将不再自动获得它(它仍保留在库中,可随时装配给项目)。已自动备份,可回滚。`}
+            confirmLabel="确认退役"
+            onConfirm={confirmRetire}
+            onCancel={() => setRetireId(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

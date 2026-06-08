@@ -1,9 +1,11 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import type { NodeProps } from 'reactflow';
 import { McpSatellite, type McpStatus } from './McpSatellite';
 import type { LibraryMcp, LibrarySkill, LibraryPlugin, LibrarySnippet } from '../../main/station/types';
 import type { PlanetPosition } from './orbitLayout';
 import type { DragItem } from './Canvas';
+import { springBouncy } from '../theme/springs';
 
 interface ProjectPlanetData extends PlanetPosition {
   name: string;
@@ -91,23 +93,24 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
       )}
 
       {/* Planet body */}
-      <div
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 2 }}>
+      <motion.div
         className="serif"
         onClick={() => data.onSelect?.()}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.94 }}
+        animate={{ boxShadow: `${isDragOver ? '0 0 28px var(--accent),' : ''} var(--glass-shadow), inset 0 2px 14px var(--glass-highlight)` }}
+        transition={springBouncy}
         style={{
-          position: 'absolute', left: '50%', top: '50%',
           width: planetRadius * 2, height: planetRadius * 2,
-          transform: 'translate(-50%,-50%)',
           background: 'var(--planet-bg)',
           backdropFilter: 'blur(18px) saturate(1.3)',
           WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
           borderRadius: '50%',
           border: '1px solid var(--glass-border)',
-          boxShadow: `${isDragOver ? '0 0 28px var(--accent),' : ''} var(--glass-shadow), inset 0 2px 14px var(--glass-highlight)`,
-          zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', gap: 3,
           cursor: 'pointer', userSelect: 'none',
-          transition: 'box-shadow 0.3s cubic-bezier(0.34,1.56,0.64,1), transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
           fontSize: Math.max(11, Math.round(planetRadius / 3.5)),
           fontWeight: 600, color: 'var(--text-primary)',
         }}>
@@ -134,6 +137,7 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
             {mcp.filter(m => m.hasSecrets).length} 🔑
           </span>
         )}
+      </motion.div>
       </div>
 
       {/* Satellites */}
@@ -146,11 +150,14 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
         return (
           <div key={m.id} style={{
             position: 'absolute', left: sx, top: sy,
-            transform: 'translate(-50%,-50%) scale(1)',
+            transform: 'translate(-50%,-50%)',
             zIndex: 3,
-            animation: `satelliteLand 0.4s cubic-bezier(0.34,1.56,0.64,1) both`,
           }}>
-            <div style={{ position: 'relative', display: 'inline-block', cursor:'default' }}>
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={springBouncy}
+              style={{ position: 'relative', display: 'inline-block', cursor:'default' }}>
               <div onClick={(e) => { e.stopPropagation(); data.onUnassignMcp?.(data.path, m.id); }}
                 style={{
                   position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%',
@@ -163,7 +170,7 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
                 className="satellite-x"
               >×</div>
               <McpSatellite label={m.id} hasSecrets={m.hasSecrets} status={m.status} />
-            </div>
+            </motion.div>
           </div>
         );
       })}

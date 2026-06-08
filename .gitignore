@@ -4,3 +4,5 @@ out/
 .env
 *.log
 .superpowers/
+.obsidian/
+graphify-out/

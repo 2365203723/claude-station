@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type { LibraryMcp, LibrarySkill, LibraryPlugin, LibrarySnippet } from '../../main/station/types';
+import { RubberScroll } from '../theme/RubberScroll';
+import { springSnappy, springSmooth } from '../theme/springs';
 
 const BAR: Record<string, string> = { mcp: '#D97757', skill: '#5B7553', plugin: '#C2965A', snippet: '#7B8DB5' };
 
@@ -17,15 +20,22 @@ function Chip({ id, kind, hasSecret, onDragStart, onDragEnd }: {
         onDragStart?.(kind, id);
       }}
       onDragEnd={() => onDragEnd?.()}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, cursor: 'grab',
-        padding: '6px 10px', marginBottom: 6, borderRadius: 8,
-        background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', fontSize: 12,
-        backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-      }}>
-      <span style={{ width: 3, height: 14, borderRadius: 2, background: BAR[kind] ?? '#999' }} />
-      {id}
-      {hasSecret && <span title="含密钥" style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>🔑</span>}
+      style={{ marginBottom: 6 }}
+    >
+      <motion.div
+        whileHover={{ x: 2 }}
+        whileTap={{ scale: 0.96 }}
+        transition={springSnappy}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, cursor: 'grab',
+          padding: '6px 10px', borderRadius: 8,
+          background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', fontSize: 12,
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+        }}>
+        <span style={{ width: 3, height: 14, borderRadius: 2, background: BAR[kind] ?? '#999' }} />
+        {id}
+        {hasSecret && <span title="含密钥" style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>🔑</span>}
+      </motion.div>
     </div>
   );
 }
@@ -38,14 +48,21 @@ function Section({ title, empty, children, defaultOpen }: { title: string; empty
         className="serif"
         onClick={() => setOpen(o => !o)}
         style={{ fontSize: 13, fontWeight: 600, marginBottom: open ? 8 : 2, cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ fontSize: 10, transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none' }}>▶</span>
+        <motion.span animate={{ rotate: open ? 90 : 0 }} transition={springSnappy} style={{ fontSize: 10, display: 'inline-block' }}>▶</motion.span>
         {title}
       </div>
-      {open && (
-        <div>
-          {empty ? <div style={{ fontSize: 12, color: 'var(--text-muted)', paddingLeft: 14 }}>—</div> : children}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springSmooth}
+            style={{ overflow: 'hidden' }}>
+            {empty ? <div style={{ fontSize: 12, color: 'var(--text-muted)', paddingLeft: 14 }}>—</div> : children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -60,26 +77,28 @@ export function LibraryRail({ mcp, skills, plugins, snippets, onDragStartItem, o
 }) {
   const total = mcp.length + skills.length + plugins.length + snippets.length;
   return (
-    <aside style={{ width: 200, background: 'var(--bg-rail)', borderRight: '1px solid var(--border)', padding: 16, overflowY: 'auto' }}>
-      <div className="serif" style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-        能力库 {total > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({total})</span>}
-      </div>
+    <aside style={{ width: 200, background: 'var(--bg-rail)', borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
+      <RubberScroll style={{ height: '100%', overflowY: 'auto', padding: 16 }}>
+        <div className="serif" style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+          能力库 {total > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({total})</span>}
+        </div>
 
-      <Section title={`MCP 服务器 (${mcp.length})`} empty={mcp.length === 0}>
-        {mcp.map(m => <Chip key={m.id} id={m.id} kind="mcp" hasSecret={m.hasSecrets} onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
-      </Section>
+        <Section title={`MCP 服务器 (${mcp.length})`} empty={mcp.length === 0}>
+          {mcp.map(m => <Chip key={m.id} id={m.id} kind="mcp" hasSecret={m.hasSecrets} onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
+        </Section>
 
-      <Section title={`Skills (${skills.length})`} empty={skills.length === 0} defaultOpen={skills.length > 0}>
-        {skills.map(s => <Chip key={s.id} id={s.id} kind="skill" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
-      </Section>
+        <Section title={`Skills (${skills.length})`} empty={skills.length === 0} defaultOpen={skills.length > 0}>
+          {skills.map(s => <Chip key={s.id} id={s.id} kind="skill" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
+        </Section>
 
-      <Section title={`Plugins (${plugins.length})`} empty={plugins.length === 0} defaultOpen={plugins.length > 0}>
-        {plugins.map(p => <Chip key={p.id} id={p.id} kind="plugin" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
-      </Section>
+        <Section title={`Plugins (${plugins.length})`} empty={plugins.length === 0} defaultOpen={plugins.length > 0}>
+          {plugins.map(p => <Chip key={p.id} id={p.id} kind="plugin" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
+        </Section>
 
-      <Section title={`配置片段 (${snippets.length})`} empty={snippets.length === 0} defaultOpen={snippets.length > 0}>
-        {snippets.map(s => <Chip key={s.id} id={s.id} kind="snippet" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
-      </Section>
+        <Section title={`配置片段 (${snippets.length})`} empty={snippets.length === 0} defaultOpen={snippets.length > 0}>
+          {snippets.map(s => <Chip key={s.id} id={s.id} kind="snippet" onDragStart={onDragStartItem} onDragEnd={onDragEndItem} />)}
+        </Section>
+      </RubberScroll>
     </aside>
   );
 }

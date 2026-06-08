@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'motion/react';
+import { springSnappy } from '../theme/springs';
 
 const BAR: Record<string, string> = {
   mcp: '#D97757',     // 陶土橙
@@ -12,15 +14,20 @@ export function CapabilityChip(props: {
   hasSecrets?: boolean;
 }) {
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '4px 10px 4px 8px', margin: 3, borderRadius: 8,
-      background: 'var(--bg-surface)', border: '1px solid var(--border)',
-      fontSize: 12, color: 'var(--text-primary)',
-    }}>
+    <motion.span
+      whileHover={{ y: -2, boxShadow: '0 6px 16px rgba(90,70,45,.16)' }}
+      whileTap={{ scale: 0.94 }}
+      transition={springSnappy}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '4px 10px 4px 8px', margin: 3, borderRadius: 8,
+        background: 'var(--bg-surface)', border: '1px solid var(--border)',
+        fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer',
+      }}
+    >
       <span style={{ width: 3, height: 14, borderRadius: 2, background: BAR[props.kind] }} />
       {props.label}
       {props.hasSecrets && <span title="含密钥" style={{ color: 'var(--text-muted)' }}>🔑</span>}
-    </span>
+    </motion.span>
   );
 }
