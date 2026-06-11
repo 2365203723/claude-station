@@ -43,9 +43,9 @@ describe('mergePluginSettings', () => {
     expect(next.enabledPlugins).toEqual({ p1: true, p2: true });
     expect(next.someKey).toBe(1);
   });
-  it('merges with existing enabledPlugins', () => {
+  it('replaces existing enabledPlugins — target is the full intended set, old keys not in target are removed', () => {
     const next = mergePluginSettings({ enabledPlugins: { old: true } }, { new: true });
-    expect(next.enabledPlugins).toEqual({ old: true, new: true });
+    expect(next.enabledPlugins).toEqual({ new: true });
   });
   it('removes plugins set to false', () => {
     const next = mergePluginSettings({ enabledPlugins: { old: true } }, { old: false });

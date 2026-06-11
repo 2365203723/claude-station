@@ -7,7 +7,7 @@ import { emptyState, saveState, loadState } from '../../src/main/station/store';
 import { projectMcpJson, resolvePaths } from '../../src/main/scanner/paths';
 
 describe('executeApply', () => {
-  it('writes .mcp.json + local scope, preserves other ~/.claude.json fields, records snapshot', () => {
+  it('writes all MCP to local scope, no .mcp.json, preserves other ~/.claude.json fields, records snapshot', () => {
     const home = mkdtempSync(join(tmpdir(), 'cs-ap-'));
     const proj = join(home, 'proj'); mkdirSync(proj, { recursive: true });
     writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({
@@ -17,19 +17,20 @@ describe('executeApply', () => {
     const s = emptyState();
     s.library.mcp['exa'] = { id: 'exa', def: { command: 'exa' }, hasSecrets: false };
     s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[proj] = { mcp: ['exa', 'firecrawl'], skills: [], plugins: [], snippets: [] };
+    s.assignments[proj] = { mcp: ['exa', 'firecrawl'], skills: [], plugins: [], snippets: [], bundles: [] };
     saveState(s, home);
 
     executeApply(s, [proj], '20260608-010101', home);
 
-    expect(JSON.parse(readFileSync(projectMcpJson(proj), 'utf8')).mcpServers).toEqual({ exa: { command: 'exa' } });
+    // 全部走 local scope,不写 .mcp.json
+    expect(existsSync(projectMcpJson(proj))).toBe(false);
     const cj = JSON.parse(readFileSync(resolvePaths(home).claudeJson, 'utf8'));
     expect(cj.mcpServers).toEqual({ globalA: { command: 'g' } });
     expect(cj.projects[proj].lastCost).toBe(7);
-    expect(cj.projects[proj].mcpServers).toEqual({ firecrawl: { command: 'npx', env: { K: 'v' } } });
+    expect(cj.projects[proj].mcpServers).toEqual({ exa: { command: 'exa' }, firecrawl: { command: 'npx', env: { K: 'v' } } });
     const saved = loadState(home);
-    expect(saved.lastApplied[proj].mcpJson).toEqual({ exa: { command: 'exa' } });
-    expect(saved.lastApplied[proj].localScope).toEqual({ firecrawl: { command: 'npx', env: { K: 'v' } } });
+    expect(saved.lastApplied[proj].mcpJson).toEqual({});
+    expect(saved.lastApplied[proj].localScope).toEqual({ exa: { command: 'exa' }, firecrawl: { command: 'npx', env: { K: 'v' } } });
     expect(existsSync(join(home, '.claude-station', 'backups', '20260608-010101'))).toBe(true);
     rmSync(home, { recursive: true, force: true });
   });
@@ -48,7 +49,7 @@ describe('executeApply', () => {
     writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { globalA: { command: 'g' } } }));
     const s = emptyState();
     s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[proj] = { mcp: ['firecrawl'], skills: [], plugins: [], snippets: [] };
+    s.assignments[proj] = { mcp: ['firecrawl'], skills: [], plugins: [], snippets: [], bundles: [] };
     saveState(s, home);
 
     expect(() => executeApply(s, [proj], '20260608-030303', home)).not.toThrow();
@@ -68,8 +69,8 @@ describe('executeApply', () => {
     writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ mcpServers: { g: { command: 'g' } } }));
     const s = emptyState();
     s.library.mcp['fc'] = { id: 'fc', def: { command: 'npx', env: { K: 'v' } }, hasSecrets: true };
-    s.assignments[a] = { mcp: ['fc'], skills: [], plugins: [], snippets: [] };
-    s.assignments[b] = { mcp: ['fc'], skills: [], plugins: [], snippets: [] };
+    s.assignments[a] = { mcp: ['fc'], skills: [], plugins: [], snippets: [], bundles: [] };
+    s.assignments[b] = { mcp: ['fc'], skills: [], plugins: [], snippets: [], bundles: [] };
     saveState(s, home);
 
     executeApply(s, [a, b], '20260608-040404', home);
@@ -77,6 +78,47 @@ describe('executeApply', () => {
     expect(cj.projects[a].mcpServers).toEqual({ fc: { command: 'npx', env: { K: 'v' } } });
     expect(cj.projects[b].mcpServers).toEqual({ fc: { command: 'npx', env: { K: 'v' } } });
     expect(cj.mcpServers).toEqual({ g: { command: 'g' } }); // globals intact
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('migrates a legacy .mcp.json to local scope and deletes the leaky file', () => {
+    const home = mkdtempSync(join(tmpdir(), 'cs-ap5-'));
+    const proj = join(home, 'proj'); mkdirSync(proj, { recursive: true });
+    // 模拟旧版本写下的 .mcp.json(泄漏源)
+    writeFileSync(projectMcpJson(proj), JSON.stringify({ mcpServers: { exa: { command: 'exa' } } }, null, 2));
+    writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ projects: { [proj]: {} } }));
+    const s = emptyState();
+    s.library.mcp['exa'] = { id: 'exa', def: { command: 'exa' }, hasSecrets: false };
+    s.assignments[proj] = { mcp: ['exa'], skills: [], plugins: [], snippets: [], bundles: [] };
+    // lastApplied 反映旧状态:exa 曾写在 .mcp.json
+    s.lastApplied[proj] = { mcpJson: { exa: { command: 'exa' } }, localScope: {}, skills: [], plugins: [], snippets: [], bundles: [] };
+    saveState(s, home);
+
+    executeApply(s, [proj], '20260608-050505', home);
+
+    // .mcp.json 被删除,exa 迁移到 local scope
+    expect(existsSync(projectMcpJson(proj))).toBe(false);
+    const cj = JSON.parse(readFileSync(resolvePaths(home).claudeJson, 'utf8'));
+    expect(cj.projects[proj].mcpServers).toEqual({ exa: { command: 'exa' } });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('preserves non-station keys when cleaning up .mcp.json', () => {
+    const home = mkdtempSync(join(tmpdir(), 'cs-ap6-'));
+    const proj = join(home, 'proj'); mkdirSync(proj, { recursive: true });
+    // 用户在 .mcp.json 里还有别的字段——清理 mcpServers 时必须保留
+    writeFileSync(projectMcpJson(proj), JSON.stringify({ mcpServers: { exa: { command: 'exa' } }, custom: 1 }, null, 2));
+    writeFileSync(resolvePaths(home).claudeJson, JSON.stringify({ projects: { [proj]: {} } }));
+    const s = emptyState();
+    s.library.mcp['exa'] = { id: 'exa', def: { command: 'exa' }, hasSecrets: false };
+    s.assignments[proj] = { mcp: ['exa'], skills: [], plugins: [], snippets: [], bundles: [] };
+    s.lastApplied[proj] = { mcpJson: { exa: { command: 'exa' } }, localScope: {}, skills: [], plugins: [], snippets: [], bundles: [] };
+    saveState(s, home);
+
+    executeApply(s, [proj], '20260608-060606', home);
+
+    const remaining = JSON.parse(readFileSync(projectMcpJson(proj), 'utf8'));
+    expect(remaining).toEqual({ custom: 1 }); // mcpServers 移除,custom 保留
     rmSync(home, { recursive: true, force: true });
   });
 });

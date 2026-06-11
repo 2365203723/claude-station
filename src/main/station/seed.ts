@@ -2,7 +2,7 @@ import type { InferredState } from '../types';
 import type { StationState } from './types';
 
 export function seedStateFromInferred(inferred: InferredState): StationState {
-  const library: StationState['library'] = { mcp: {}, skills: {}, plugins: {}, snippets: {} };
+  const library: StationState['library'] = { mcp: {}, skills: {}, plugins: {}, snippets: {}, bundles: {} };
 
   // 播种 MCP
   for (const m of inferred.userScope.mcp) {
@@ -39,6 +39,7 @@ export function seedStateFromInferred(inferred: InferredState): StationState {
       skills: p.skills.map(s => s.id),
       plugins: p.plugins.filter(pl => pl.enabled).map(pl => pl.id),
       snippets: [],
+      bundles: [],
     };
   }
   return { version: 1, library, assignments, lastApplied: {} };

@@ -20,13 +20,19 @@ export function mergeLocalScope(
   return { ...base, projects };
 }
 
-/** 合并 enabledPlugins 到 settings.json,保留其他字段 */
+/** 合并 enabledPlugins 到 settings.json,保留其他字段。
+ *  同时清理不在 target 里的旧条目——否则 unassign 后永远删不掉。 */
 export function mergePluginSettings(
   existing: any,
   enabledPlugins: Record<string, boolean>,
 ): any {
   const base = existing ?? {};
-  const current = { ...(base.enabledPlugins ?? {}) };
+  const current: Record<string, boolean> = { ...(base.enabledPlugins ?? {}) };
+  // 删除不在 target 里的插件
+  for (const k of Object.keys(current)) {
+    if (!(k in enabledPlugins)) delete current[k];
+  }
+  // 写入 target 里的插件
   for (const [id, on] of Object.entries(enabledPlugins)) {
     if (on) current[id] = true; else delete current[id];
   }

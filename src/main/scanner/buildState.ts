@@ -30,9 +30,13 @@ export function buildState(home: string = homedir()): InferredState {
     const local = (cj.projectLocalMcp[path] ?? []).filter(m => !disabled.has(m.id));
     const fromMcpJson = parseMcpJson(projectMcpJson(path)).filter(m => !disabled.has(m.id));
     const projSettings = readJson(projectSettings(path));
+    // 同一 MCP 可能同时出现在 .mcp.json 和 ~/.claude.json 本地作用域里——按 id 去重,
+    // 否则星球上会画出重复卫星、assignments 里也会塞重复 id
+    const seen = new Set<string>();
+    const mcp = [...fromMcpJson, ...local].filter(m => seen.has(m.id) ? false : (seen.add(m.id), true));
     return {
       path,
-      mcp: [...fromMcpJson, ...local],
+      mcp,
       skills: scanSkills(projectSkillsDir(path), 'project'),
       plugins: parsePlugins(installed, projSettings?.enabledPlugins),
     };

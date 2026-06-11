@@ -16,7 +16,7 @@ describe('station store', () => {
     const home = mkdtempSync(join(tmpdir(), 'cs-st-'));
     const s = emptyState();
     s.library.mcp['firecrawl'] = { id: 'firecrawl', def: { command: 'npx' }, hasSecrets: true };
-    s.assignments['/p'] = { mcp: ['firecrawl'], skills: [], plugins: [], snippets: [] };
+    s.assignments['/p'] = { mcp: ['firecrawl'], skills: [], plugins: [], snippets: [], bundles: [] };
     saveState(s, home);
     expect(loadState(home)).toEqual(s);
     rmSync(home, { recursive: true, force: true });

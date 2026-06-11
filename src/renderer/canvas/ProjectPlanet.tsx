@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import type { NodeProps } from 'reactflow';
 import { McpSatellite, type McpStatus } from './McpSatellite';
-import type { LibraryMcp, LibrarySkill, LibraryPlugin, LibrarySnippet } from '../../main/station/types';
+import type { LibraryMcp, LibrarySkill, LibraryPlugin, LibrarySnippet, LibraryBundle } from '../../main/station/types';
 import type { PlanetPosition } from './orbitLayout';
 import type { DragItem } from './Canvas';
 import { springBouncy } from '../theme/springs';
@@ -13,6 +13,7 @@ interface ProjectPlanetData extends PlanetPosition {
   skills: string[];
   plugins: string[];
   snippets: string[];
+  bundles: LibraryBundle[];
   libraryMcp: Record<string, LibraryMcp>;
   librarySkills: Record<string, LibrarySkill>;
   libraryPlugins: Record<string, LibraryPlugin>;
@@ -21,29 +22,46 @@ interface ProjectPlanetData extends PlanetPosition {
   isDragOver: boolean;
   onDropItem?: (path: string, kind: string, id: string) => void;
   onUnassignMcp?: (path: string, mcpId: string) => void;
+  onUnassignBundle?: (path: string, bundleId: string) => void;
+  onUnassignSkill?: (path: string, skillId: string) => void;
+  onUnassignPlugin?: (path: string, pluginId: string) => void;
   onSelect?: () => void;
+  isGlobal?: boolean;
 }
 
-const TYPE_COLORS: Record<string, string> = { mcp: '#D97757', skill: '#5B7553', plugin: '#C2965A', snippet: '#7B8DB5' };
+const TYPE_COLORS: Record<string, string> = { mcp: '#D97757', skill: '#5B7553', plugin: '#C2965A', snippet: '#7B8DB5', bundle: '#9B6B9E' };
 
 export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
-  const { name, mcp = [], skills = [], plugins = [], snippets = [], planetRadius, orbitRadius, draggingItem, isDragOver } = data;
+  const { name, mcp = [], skills = [], plugins = [], snippets = [], bundles = [], planetRadius, orbitRadius, draggingItem, isDragOver } = data;
   const libraryMcp = data.libraryMcp ?? {};
   const librarySkills = data.librarySkills ?? {};
   const libraryPlugins = data.libraryPlugins ?? {};
   const librarySnippets = data.librarySnippets ?? {};
-  const draggingMcpId = draggingItem?.kind === 'mcp' ? draggingItem.id : null;
-  const satAngle = (idx: number) => (idx / Math.max(mcp.length, 1)) * 2 * Math.PI - Math.PI / 2;
+  const satAngle = (idx: number, total: number) => (idx / Math.max(total, 1)) * 2 * Math.PI - Math.PI / 2;
+  // 轨道上所有卫星: Bundle + MCP
+  interface SatEntry { kind: 'bundle' | 'mcp'; id: string; label: string; hasSecrets: boolean; status?: McpStatus; }
+  const satellites: SatEntry[] = [
+    ...bundles.map(b => ({ kind: 'bundle' as const, id: b.id, label: `${b.icon ?? '📦'} ${b.name}`, hasSecrets: false })),
+    ...mcp.map(m => ({ kind: 'mcp' as const, id: m.id, label: m.id, hasSecrets: m.hasSecrets, status: m.status })),
+  ];
 
-  // 计算摘要行各部分
+  const isGlobal = (data as any).isGlobal as boolean | undefined;
+
+  // 摘要行
   const parts: { label: string; kind: string }[] = [];
+  if (bundles.length > 0) parts.push({ label: `${bundles.length} Bundle`, kind: 'bundle' });
   if (mcp.length > 0) parts.push({ label: `${mcp.length} MCP`, kind: 'mcp' });
   if (skills.length > 0) parts.push({ label: `${skills.length} Skill`, kind: 'skill' });
   if (plugins.length > 0) parts.push({ label: `${plugins.length} Plugin`, kind: 'plugin' });
   if (snippets.length > 0) parts.push({ label: `${snippets.length} 片段`, kind: 'snippet' });
 
-  // 检查被拖拽 item 对应的 library 信息(用于 snap preview)
+  // 拖拽预览
   const draggedItemLabel = draggingItem ? (() => {
+    if (draggingItem.kind === 'bundle') {
+      const b = bundles.find(x => x.id === draggingItem.id);
+      if (b) return `${b.icon ?? '📦'} ${b.name}`;
+      return draggingItem.id;
+    }
     if (draggingItem.kind === 'mcp') return libraryMcp[draggingItem.id]?.id;
     if (draggingItem.kind === 'skill') return librarySkills[draggingItem.id]?.id;
     if (draggingItem.kind === 'plugin') return libraryPlugins[draggingItem.id]?.id;
@@ -55,13 +73,13 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
     <div
       onDrop={e => {
         e.preventDefault();
+        const bundleRaw = e.dataTransfer.getData('application/x-station-bundle');
+        if (bundleRaw) {
+          try { const item = JSON.parse(bundleRaw); if (item.kind && item.id && data.onDropItem) data.onDropItem(data.path, item.kind, item.id); return; } catch {}
+        }
         const raw = e.dataTransfer.getData('application/x-station-item');
         if (raw) {
-          try {
-            const item = JSON.parse(raw);
-            if (item.kind && item.id && data.onDropItem) data.onDropItem(data.path, item.kind, item.id);
-            return;
-          } catch { /* fall through to legacy */ }
+          try { const item = JSON.parse(raw); if (item.kind && item.id && data.onDropItem) data.onDropItem(data.path, item.kind, item.id); return; } catch {}
         }
         const id = e.dataTransfer.getData('application/x-mcp-id');
         if (id && data.onDropItem) data.onDropItem(data.path, 'mcp', id);
@@ -79,7 +97,7 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
       )}
 
       {/* Orbit ring */}
-      {mcp.length > 0 && (
+      {satellites.length > 0 && (
         <div style={{
           position: 'absolute', left: '50%', top: '50%',
           width: orbitRadius * 2 + planetRadius * 2,
@@ -103,14 +121,11 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
         transition={springBouncy}
         style={{
           width: planetRadius * 2, height: planetRadius * 2,
-          background: 'var(--planet-bg)',
-          backdropFilter: 'blur(18px) saturate(1.3)',
-          WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
-          borderRadius: '50%',
+          background: 'var(--planet-bg)', backdropFilter: 'blur(18px) saturate(1.3)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.3)', borderRadius: '50%',
           border: '1px solid var(--glass-border)',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 3,
-          cursor: 'pointer', userSelect: 'none',
+          justifyContent: 'center', gap: 3, cursor: 'pointer', userSelect: 'none',
           fontSize: Math.max(11, Math.round(planetRadius / 3.5)),
           fontWeight: 600, color: 'var(--text-primary)',
         }}>
@@ -127,55 +142,66 @@ export function ProjectPlanet({ data }: NodeProps<ProjectPlanetData>) {
             ))}
           </span>
         ) : (
-          <span style={{ fontSize: Math.max(9, Math.round(planetRadius / 5)),
-            color: 'var(--text-muted)', fontWeight: 400 }}>
-            空
-          </span>
+          <span style={{ fontSize: Math.max(9, Math.round(planetRadius / 5)), color: 'var(--text-muted)', fontWeight: 400 }}>空</span>
         )}
         {mcp.filter(m => m.hasSecrets).length > 0 && (
-          <span style={{ fontSize: 8, color: 'var(--text-muted)' }}>
-            {mcp.filter(m => m.hasSecrets).length} 🔑
-          </span>
+          <span style={{ fontSize: 8, color: 'var(--text-muted)' }}>{mcp.filter(m => m.hasSecrets).length} 🔑</span>
         )}
       </motion.div>
       </div>
 
-      {/* Satellites */}
-      {mcp.map((m, i) => {
-        const a = satAngle(i);
+      {/* Satellites — Bundles + MCP */}
+      {satellites.map((s, i) => {
+        const a = satAngle(i, satellites.length);
         const halfW = planetRadius + orbitRadius + 10;
         const orbitDist = planetRadius + orbitRadius;
         const sx = halfW + Math.cos(a) * orbitDist;
         const sy = halfW + Math.sin(a) * orbitDist;
         return (
-          <div key={m.id} style={{
+          <div key={`${s.kind}:${s.id}`} style={{
             position: 'absolute', left: sx, top: sy,
-            transform: 'translate(-50%,-50%)',
-            zIndex: 3,
+            transform: 'translate(-50%,-50%)', zIndex: 3,
           }}>
             <motion.div
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={springBouncy}
-              style={{ position: 'relative', display: 'inline-block', cursor:'default' }}>
-              <div onClick={(e) => { e.stopPropagation(); data.onUnassignMcp?.(data.path, m.id); }}
+              style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}>
+              <div onClick={(e) => {
+                e.stopPropagation();
+                if (s.kind === 'bundle') data.onUnassignBundle?.(data.path, s.id);
+                else data.onUnassignMcp?.(data.path, s.id);
+              }}
                 style={{
                   position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%',
                   background: 'var(--bg-surface)', border: '1px solid var(--border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 10, color: 'var(--text-muted)', cursor: 'pointer',
-                  opacity: 0, transition: 'opacity 0.2s ease',
-                  zIndex: 5,
+                  opacity: 0, transition: 'opacity 0.2s ease', zIndex: 5,
                 }}
                 className="satellite-x"
               >×</div>
-              <McpSatellite label={m.id} hasSecrets={m.hasSecrets} status={m.status} />
+              {s.kind === 'bundle' ? (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '3px 10px', borderRadius: 14, fontSize: 11,
+                  background: 'var(--glass-surface)',
+                  backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid var(--bundle-accent)',
+                  boxShadow: 'var(--glass-shadow)', color: 'var(--text-primary)',
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9B6B9E', flexShrink: 0 }} />
+                  {s.label}
+                </div>
+              ) : (
+                <McpSatellite label={s.id} hasSecrets={s.hasSecrets} status={s.status ?? 'pending'} />
+              )}
             </motion.div>
           </div>
         );
       })}
 
-      {/* Snap preview — 拖拽悬停时显示将要装配的能力 */}
+      {/* Snap preview */}
       {isDragOver && draggedItemLabel && (
         <div style={{
           position: 'absolute', left: '50%', top: '50%',

@@ -9,16 +9,16 @@ function lib() {
   s.library.skills['graphify'] = { id: 'graphify', name: 'graphify', sourcePath: '/tmp/skills/graphify' };
   s.library.plugins['superpowers@official'] = { id: 'superpowers@official' };
   s.library.snippets['my-md'] = { id: 'my-md', name: 'my-md', kind: 'claudemd', content: '# Hello' };
-  s.assignments['/p'] = { mcp: ['exa', 'firecrawl'], skills: ['graphify'], plugins: ['superpowers@official'], snippets: ['my-md'] };
+  s.assignments['/p'] = { mcp: ['exa', 'firecrawl'], skills: ['graphify'], plugins: ['superpowers@official'], snippets: ['my-md'], bundles: [] };
   return s;
 }
 
 describe('compileProjectTargets', () => {
-  it('routes non-secret to mcpJson, secret to localScope', () => {
+  it('routes all MCP to localScope (path-exact isolation), mcpJson stays empty', () => {
     const t = compileProjectTargets(lib(), '/p');
-    expect(Object.keys(t.mcpJson)).toEqual(['exa']);
-    expect(t.mcpJson['exa']).toEqual({ command: 'exa' });
-    expect(Object.keys(t.localScope)).toEqual(['firecrawl']);
+    expect(Object.keys(t.mcpJson)).toEqual([]);
+    expect(Object.keys(t.localScope).sort()).toEqual(['exa', 'firecrawl']);
+    expect(t.localScope['exa']).toEqual({ command: 'exa' });
     expect(t.localScope['firecrawl']).toEqual({ command: 'npx', env: { K: 'v' } });
   });
   it('compiles skills from library', () => {

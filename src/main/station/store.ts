@@ -5,7 +5,7 @@ import type { StationState } from './types';
 import { stationPaths } from './paths';
 
 export function emptyState(): StationState {
-  return { version: 1, library: { mcp: {}, skills: {}, plugins: {}, snippets: {} }, assignments: {}, lastApplied: {} };
+  return { version: 2, library: { mcp: {}, skills: {}, plugins: {}, snippets: {}, bundles: {} }, assignments: {}, lastApplied: {} };
 }
 
 export function loadState(home: string = homedir()): StationState {
@@ -18,15 +18,25 @@ export function loadState(home: string = homedir()): StationState {
     raw.library.skills ??= {};
     raw.library.plugins ??= {};
     raw.library.snippets ??= {};
+    raw.library.bundles ??= {};
+    raw.version ??= 1;
     for (const a of Object.values(raw.assignments ?? {}) as any[]) {
       a.skills ??= [];
       a.plugins ??= [];
       a.snippets ??= [];
+      a.bundles ??= [];
+      // 去重——历史 state.json 可能存有重复 id(同一 MCP 既在 .mcp.json 又在本地作用域)
+      a.mcp = [...new Set(a.mcp ?? [])];
+      a.skills = [...new Set(a.skills)];
+      a.plugins = [...new Set(a.plugins)];
+      a.snippets = [...new Set(a.snippets)];
+      a.bundles = [...new Set(a.bundles)];
     }
     for (const s of Object.values(raw.lastApplied ?? {}) as any[]) {
       s.skills ??= [];
       s.plugins ??= [];
       s.snippets ??= [];
+      s.bundles ??= [];
     }
     return raw;
   } catch { return emptyState(); }

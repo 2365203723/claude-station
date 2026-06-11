@@ -5,11 +5,25 @@ export interface LibrarySkill { id: string; name: string; sourcePath: string; }
 export interface LibraryPlugin { id: string; marketplace?: string; name?: string; version?: string; }
 export interface LibrarySnippet { id: string; name: string; kind: 'claudemd' | 'hooks' | 'env'; content: string; }
 
+export interface LibraryBundle {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  homepage?: string;
+  version: string;
+  mcp: string[];       // library.mcp 中的 MCP ID
+  skills: string[];    // library.skills 中的 skill ID
+  plugins: string[];   // library.plugins 中的 plugin ID
+  autoDetected?: boolean;
+}
+
 export interface StationLibrary {
   mcp: Record<string, LibraryMcp>;
   skills: Record<string, LibrarySkill>;
   plugins: Record<string, LibraryPlugin>;
   snippets: Record<string, LibrarySnippet>;
+  bundles: Record<string, LibraryBundle>;
 }
 
 export interface ProjectAssignment {
@@ -17,6 +31,7 @@ export interface ProjectAssignment {
   skills: string[];
   plugins: string[];
   snippets: string[];
+  bundles: string[];
 }
 
 export interface AppliedSnapshot {
@@ -25,6 +40,7 @@ export interface AppliedSnapshot {
   skills: string[];
   plugins: string[];
   snippets: string[];
+  bundles: string[];
 }
 
 export interface StationState {

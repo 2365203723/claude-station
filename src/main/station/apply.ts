@@ -41,7 +41,7 @@ export function computeApplyPlan(state: StationState, projectPaths: string[], ho
   const changes: FileChange[] = [];
   for (const path of projectPaths) {
     const target = compileProjectTargets(state, path);
-    const snap: AppliedSnapshot = state.lastApplied[path] ?? { mcpJson: {}, localScope: {}, skills: [], plugins: [], snippets: [] };
+    const snap: AppliedSnapshot = state.lastApplied[path] ?? { mcpJson: {}, localScope: {}, skills: [], plugins: [], snippets: [], bundles: [] };
 
     // MCP
     const mj = mcpChange(projectMcpJson(path), 'mcpjson', snap.mcpJson, target.mcpJson);
@@ -84,6 +84,24 @@ function readText(file: string): string | undefined {
   try { return readFileSync(file, 'utf8'); } catch { return undefined; }
 }
 
+/** 清理本软件以前写到 .mcp.json 的 mcpServers。
+ *  .mcp.json 会被子目录继承,是隔离泄漏的根源——MCP 已改走 local scope。
+ *  若移除 mcpServers 后文件只剩空对象,直接删文件;否则保留其他字段。 */
+function cleanupMcpJson(file: string): void {
+  if (!existsSync(file)) return;
+  const existing = readJson(file);
+  if (existing === undefined || typeof existing !== 'object') {
+    // 无法解析的文件不动,避免误删用户手写内容
+    return;
+  }
+  const { mcpServers, ...rest } = existing;
+  if (Object.keys(rest).length === 0) {
+    try { unlinkSync(file); } catch { /* ok */ }
+  } else {
+    writeFileSync(file, JSON.stringify(rest, null, 2));
+  }
+}
+
 export function executeApply(state: StationState, projectPaths: string[], stamp: string, home: string = homedir()): StationState {
   const claudeJson = resolvePaths(home).claudeJson;
   const plan = computeApplyPlan(state, projectPaths, home);
@@ -96,15 +114,21 @@ export function executeApply(state: StationState, projectPaths: string[], stamp:
   const next = { ...state, lastApplied: { ...state.lastApplied } };
   for (const path of projectPaths) {
     const target = compileProjectTargets(state, path);
-    const prevSnap: AppliedSnapshot = state.lastApplied[path] ?? { mcpJson: {}, localScope: {}, skills: [], plugins: [], snippets: [] };
+    const prevSnap: AppliedSnapshot = state.lastApplied[path] ?? { mcpJson: {}, localScope: {}, skills: [], plugins: [], snippets: [], bundles: [] };
 
     // MCP
     const mjDiff = diffServers(prevSnap.mcpJson, target.mcpJson);
     const lsDiff = diffServers(prevSnap.localScope, target.localScope);
     if (mjDiff.added.length || mjDiff.removed.length || mjDiff.changed.length) {
       const mcpJsonFile = projectMcpJson(path);
-      mkdirSync(dirname(mcpJsonFile), { recursive: true });
-      writeFileSync(mcpJsonFile, JSON.stringify(mergeMcpJson(readJson(mcpJsonFile), target.mcpJson), null, 2));
+      if (Object.keys(target.mcpJson).length === 0) {
+        // 新策略:MCP 全部走 local scope,不再写 .mcp.json。
+        // 清理本软件以前写的 .mcp.json —— 它会被子目录继承,是隔离泄漏的根源。
+        cleanupMcpJson(mcpJsonFile);
+      } else {
+        mkdirSync(dirname(mcpJsonFile), { recursive: true });
+        writeFileSync(mcpJsonFile, JSON.stringify(mergeMcpJson(readJson(mcpJsonFile), target.mcpJson), null, 2));
+      }
     }
     if (lsDiff.added.length || lsDiff.removed.length || lsDiff.changed.length) {
       cj = mergeLocalScope(cj, path, target.localScope);
@@ -129,8 +153,15 @@ export function executeApply(state: StationState, projectPaths: string[], stamp:
       // 创建新 assigned 的 symlink
       for (const s of target.skills) {
         const linkPath = join(skillsDir, s.id);
-        if (!existsSync(linkPath)) {
+        // lstatSync 不跟踪符号链接——existsSync 遇到死 symlink 会返回 false,
+        // 导致 symlinkSync 抛 EEXIST 崩溃,阻断后续 plugins/snippets 写入。
+        try { if (lstatSync(linkPath)) continue; } catch { /* 不存在,继续 */ }
+        // skill 源文件夹可能不存在(如被误删或迁移)——跳过并继续
+        try {
           symlinkSync(s.sourcePath, linkPath, 'dir');
+        } catch (e: any) {
+          // 源缺失只影响这一个 skill,不应阻断 plugins/snippets 写入
+          console.warn(`[apply] symlink failed for skill ${s.id}: ${e.message}`);
         }
       }
     }
@@ -178,6 +209,7 @@ export function executeApply(state: StationState, projectPaths: string[], stamp:
       skills: targetSkillIds,
       plugins: targetPluginIds,
       snippets: target.snippetBlocks.map(b => b.id),
+      bundles: (state.assignments[path]?.bundles ?? []),
     };
   }
 

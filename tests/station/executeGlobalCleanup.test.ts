@@ -14,7 +14,7 @@ describe('executeGlobalCleanup', () => {
       projects: { '/a': { lastCost: 5 } },
     }));
     const s = emptyState();
-    s.lastApplied['/a'] = { mcpJson: {}, localScope: { firecrawl: { command: 'npx' } }, skills: [], plugins: [], snippets: [] }; // only firecrawl landed
+    s.lastApplied['/a'] = { mcpJson: {}, localScope: { firecrawl: { command: 'npx' } }, skills: [], plugins: [], snippets: [], bundles: [] }; // only firecrawl landed
     saveState(s, home);
 
     const removed = executeGlobalCleanup(['firecrawl', 'memory', 'codegraph'], '20260608-090909', home);

@@ -23,6 +23,7 @@
   --orbit-line: rgba(217,119,87,.22);
   --orbit-line-active: rgba(217,119,87,.48);
   --gravity-glow: rgba(217,119,87,.18);
+  --bundle-accent: #9B6B9E;
 }
 
 [data-theme="dark"] {
@@ -47,6 +48,7 @@
   --orbit-line: rgba(224,138,107,.28);
   --orbit-line-active: rgba(224,138,107,.56);
   --gravity-glow: rgba(224,138,107,.14);
+  --bundle-accent: #B88CBB;
 }
 
 * { box-sizing: border-box; }
