@@ -77,9 +77,17 @@ describe('removeGlobalSkill relocation semantics', () => {
 
   it('listGlobalSkills dedupes a name present in both dirs', () => {
     mkdirSync(join(skillsDir, 'shared'), { recursive: true });
+    writeFileSync(join(skillsDir, 'shared', 'SKILL.md'), '# shared');
     mkdirSync(join(agentsSkillsDir, 'shared'), { recursive: true });
+    writeFileSync(join(agentsSkillsDir, 'shared', 'SKILL.md'), '# shared');
     const ids = listGlobalSkills().map(s => s.id).filter(id => id === 'shared');
     expect(ids).toEqual(['shared']);
+  });
+
+  it('listGlobalSkills 跳过无 SKILL.md 的空壳目录(终端 No skills found 的根因)', () => {
+    mkdirSync(join(skillsDir, 'emptyshell'), { recursive: true });
+    const ids = listGlobalSkills().map(s => s.id);
+    expect(ids).not.toContain('emptyshell');
   });
 });
 

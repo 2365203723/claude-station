@@ -12,7 +12,7 @@ interface AssignmentData {
   mcp: string[]; skills: string[]; plugins: string[]; snippets: string[]; bundles: string[];
 }
 
-export function DetailPanel({ project, assignments, desiredBundles, desiredMcp, onUnassign, onUnassignBundle, onDeleteProject, isGlobal, globalSnapshot, onUnassignGlobalMcp, onUnassignGlobalSkill, onUnassignGlobalPlugin, onUnassignGlobalBundle, drifted }: {
+export function DetailPanel({ project, assignments, desiredBundles, desiredMcp, onUnassign, onUnassignBundle, onDeleteProject, isGlobal, globalSnapshot, onUnassignGlobalMcp, onUnassignGlobalSkill, onUnassignGlobalPlugin, onUnassignGlobalBundle, drifted, deadSkillIds }: {
   project: ProjectState | null;
   assignments?: AssignmentData;
   desiredBundles: Record<string, LibraryBundle>;
@@ -27,6 +27,8 @@ export function DetailPanel({ project, assignments, desiredBundles, desiredMcp, 
   drifted?: boolean;
   onUnassignGlobalPlugin?: (pluginId: string) => void;
   onUnassignGlobalBundle?: (bundleId: string) => void;
+  // bundle 展开的 skill 里,死链/空壳的 id——渲染时标「不可用」
+  deadSkillIds?: Set<string>;
 }) {
   // Global panel
   if (isGlobal && globalSnapshot) {
@@ -61,7 +63,7 @@ export function DetailPanel({ project, assignments, desiredBundles, desiredMcp, 
                   {[...b.mcp.map(id => ({ id, kind: 'MCP', hasSecrets: desiredMcp[id]?.hasSecrets ?? false })), ...b.skills.map(id => ({ id, kind: 'Skill', hasSecrets: false })), ...b.plugins.map(id => ({ id, kind: 'Plugin', hasSecrets: false }))].map(item => (
                     <div key={`${b.id}:${item.id}`} style={{ fontSize: 11, padding: '1px 0 1px 18px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', opacity: .65 }}>
                       <span style={{ width: 4, height: 4, borderRadius: '50%', background: kindColorOf(item.kind), flexShrink: 0 }} />
-                      <span style={{ flex: 1 }}>{item.id}{item.hasSecrets ? ' 🔑' : ''}</span>
+                      <span style={{ flex: 1, ...(item.kind === 'Skill' && deadSkillIds?.has(item.id) ? { textDecoration: 'line-through', color: 'var(--state-drift)' } : {}) }}>{item.id}{item.hasSecrets ? ' 🔑' : ''}{item.kind === 'Skill' && deadSkillIds?.has(item.id) ? ' · 不可用' : ''}</span>
                       <span style={{ fontSize: 9, opacity: .5 }}>🔒</span>
                     </div>
                   ))}

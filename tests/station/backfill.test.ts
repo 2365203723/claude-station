@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { backfillState } from '../../src/main/station/backfill';
@@ -104,6 +104,34 @@ describe('backfillState', () => {
     const r = backfillState(s, inferred());
     expect(r.bundlesDetected).toBe(true);
     expect(r.state.library.bundles['exa']).toBeTruthy();
+  });
+
+  it('回归:userScope skill 的 path 是指向库真身的 symlink 时,绝不清空库副本', () => {
+    // 复现 bug:~/.claude/skills/<id> 是指向 ~/.claude-orbit/library/skills/<id> 的 symlink,
+    // buildState 扫到它后 path=symlink。旧逻辑 sourcePath!==dest(字符串)→ copyDirSafe 先 rmSync(dest)
+    // 删库真身、再从 follow 到已空 dest 的 symlink 复制 → 把自己清空。app 一打开 skill 就没了。
+    const home = mkdtempSync(join(tmpdir(), 'bf-alias-'));
+    const libSkill = join(home, '.claude-orbit', 'library', 'skills', 'agentmemory-agents');
+    mkdirSync(libSkill, { recursive: true });
+    writeFileSync(join(libSkill, 'SKILL.md'), '# real content');
+    writeFileSync(join(libSkill, 'REFERENCE.md'), 'ref');
+    // ~/.claude/skills/<id> symlink → 库真身
+    const claudeSkills = join(home, '.claude', 'skills');
+    mkdirSync(claudeSkills, { recursive: true });
+    const link = join(claudeSkills, 'agentmemory-agents');
+    symlinkSync(libSkill, link);
+
+    const s = emptyState();
+    s.library.skills['agentmemory-agents'] = { id: 'agentmemory-agents', name: 'agentmemory-agents', sourcePath: libSkill };
+
+    // 模拟 reload:inferred 把 symlink 路径作为 userScope skill 的 path
+    backfillState(s, inferred({ skills: [{ id: 'agentmemory-agents', scope: 'user', path: link }] }), home);
+
+    // 库真身内容必须原样保留,绝不被清空
+    expect(existsSync(join(libSkill, 'SKILL.md'))).toBe(true);
+    expect(readFileSync(join(libSkill, 'SKILL.md'), 'utf8')).toBe('# real content');
+    expect(existsSync(join(libSkill, 'REFERENCE.md'))).toBe(true);
+    rmSync(home, { recursive: true, force: true });
   });
 
   it('skips a project present on disk but absent from state.assignments', () => {

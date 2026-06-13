@@ -54,6 +54,7 @@ const api = {
   importDiscoveredSkills: (): Promise<{ state: any; imported: string[]; skipped: number }> => ipcRenderer.invoke('station:importDiscoveredSkills'),
   diagnoseDeadSkills: (): Promise<{ id: string; sourcePath: string; sourceUrl?: string; globalCopy?: string; fixable: 'global-copy' | 'git-clone' | 'manual' }[]> => ipcRenderer.invoke('station:diagnoseDeadSkills'),
   repairDeadSkills: (ids: string[]): Promise<{ state: any; report: { repaired: string[]; failed: { id: string; reason: string }[]; manual: string[] } }> => ipcRenderer.invoke('station:repairDeadSkills', ids),
+  removeDeadSkills: (ids: string[]): Promise<{ state: any; report: { removed: string[]; failed: { id: string; reason: string }[] } }> => ipcRenderer.invoke('station:removeDeadSkills', ids),
   getGlobalSnapshot: (): Promise<{ mcp: PublicGlobalMcp[]; skills: GlobalSkillInfo[]; plugins: GlobalPluginInfo[]; bundleIds: string[] }> => ipcRenderer.invoke('station:getGlobalSnapshot'),
   // Backups
   listBackups: (): Promise<{ stamp: string; files: { originalPath: string; size: number }[] }[]> => ipcRenderer.invoke('orbit:listBackups'),

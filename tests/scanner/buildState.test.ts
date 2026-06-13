@@ -11,8 +11,10 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'cs-home-'));
   proj = join(home, 'ecc');
   mkdirSync(join(home, '.claude', 'skills', 'graphify'), { recursive: true });
+  writeFileSync(join(home, '.claude', 'skills', 'graphify', 'SKILL.md'), '# graphify');
   mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
   mkdirSync(join(proj, '.claude', 'skills', 'localskill'), { recursive: true });
+  writeFileSync(join(proj, '.claude', 'skills', 'localskill', 'SKILL.md'), '# localskill');
 
   writeFileSync(join(home, '.claude.json'), JSON.stringify({
     mcpServers: { firecrawl: { command: 'npx', env: { K: 'v' } } },

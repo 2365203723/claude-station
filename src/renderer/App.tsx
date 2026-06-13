@@ -11,6 +11,7 @@ import { BundleEditorModal } from './rail/BundleEditorModal';
 import { SkillDoctorModal } from './rail/SkillDoctorModal';
 import { TerminalPanel } from './terminal/TerminalPanel';
 import { GlassModal } from './theme/GlassModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { STR } from './i18n/strings';
 import type { ProjectState } from '../main/types';
 import type { StationState, LibraryBundle } from '../main/station/types';
@@ -29,7 +30,7 @@ const THEME_LABEL: Record<ThemePref, string> = { light: '☀️ 浅色', dark: '
 export function App() {
   const [desired, setDesired] = useState<StationState | null>(null);
   const [projects, setProjects] = useState<ProjectState[]>([]);
-  const [skillHealth, setSkillHealth] = useState<{ dead: string[] } | null>(null);
+  const [skillHealth, setSkillHealth] = useState<{ dead: string[]; incomplete: string[] } | null>(null);
   const [driftedPaths, setDriftedPaths] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ProjectState | null>(null);
   const [globalSelected, setGlobalSelected] = useState(false);
@@ -91,38 +92,52 @@ export function App() {
     const t = setTimeout(() => setNotice(null), 3500);
     return () => clearTimeout(t);
   }, [notice]);
-  // 安全网:漏网的 unhandled rejection 也走同一 toast
+  // 安全网:漏网的 unhandled rejection 与同步抛错都走同一 toast。
+  // ErrorBoundary 截获 React 渲染期异常;这里补 boundary 之外的(如事件 handler 内)。
   useEffect(() => {
-    const handler = (e: PromiseRejectionEvent) => setIpcError(formatIpcError(e.reason));
-    window.addEventListener('unhandledrejection', handler);
-    return () => window.removeEventListener('unhandledrejection', handler);
+    const onRejection = (e: PromiseRejectionEvent) => setIpcError(formatIpcError(e.reason));
+    // 仅在有真实 Error 时提示——过滤 img/script 资源加载错误造成的噪音
+    const onError = (e: ErrorEvent) => { if (e.error instanceof Error) setIpcError(formatIpcError(e.error)); };
+    window.addEventListener('unhandledrejection', onRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection);
+      window.removeEventListener('error', onError);
+    };
   }, []);
 
   const reloadGlobal = useCallback(async () => {
     const seq = ++reloadGlobalSeqRef.current;
-    const gs = await window.station.getGlobalSnapshot();
-    if (seq !== reloadGlobalSeqRef.current) return; // 已有更新的请求在途,丢弃旧快照
+    try {
+      const gs = await window.station.getGlobalSnapshot();
+      if (seq !== reloadGlobalSeqRef.current) return; // 已有更新的请求在途,丢弃旧快照
 
-    // Global 右侧是磁盘实时扫描;左侧能力库来自 desired state。
-    // 如果外部刚安装了 skill,右侧会先看到,左侧仍旧。此处自动触发一次
-    // scan/import,把全局新 skill 复制进 Orbit 库并刷新 desired,保证两侧一致。
-    let desiredNow = desiredRef.current;
-    const missingGlobalSkill = gs.skills.some(s => !desiredNow?.library.skills?.[s.id]);
-    if (missingGlobalSkill) {
-      const { state: next } = await window.station.importDiscoveredSkills();
-      if (seq !== reloadGlobalSeqRef.current) return;
-      setDesired(next);
-      desiredNow = next;
+      // Global 右侧是磁盘实时扫描;左侧能力库来自 desired state。
+      // 如果外部刚安装了 skill,右侧会先看到,左侧仍旧。此处自动触发一次
+      // scan/import,把全局新 skill 复制进 Orbit 库并刷新 desired,保证两侧一致。
+      let desiredNow = desiredRef.current;
+      const missingGlobalSkill = gs.skills.some(s => !desiredNow?.library.skills?.[s.id]);
+      if (missingGlobalSkill) {
+        const { state: next } = await window.station.importDiscoveredSkills();
+        if (seq !== reloadGlobalSeqRef.current) return;
+        setDesired(next);
+        desiredNow = next;
+      }
+
+      const lib = desiredNow?.library.bundles ?? {};
+      setGlobalSnapshot({
+        mcp: gs.mcp.map(m => ({ id: m.id, hasSecrets: m.hasSecrets })),
+        skills: gs.skills.map(s => s.id),
+        plugins: gs.plugins.filter(p => p.enabled).map(p => p.id),
+        // 只显示显式分配的 bundle——绝不从「MCP 全在全局」推断,手动添加会误报
+        bundles: gs.bundleIds.map(id => lib[id]).filter((b): b is LibraryBundle => !!b),
+      });
+    } catch (e) {
+      // Global 扫描偶发失败(如 settings.json 临时损坏)不应让项目星球或已渲染的
+      // global 星球因抛错消失。保留上一帧 globalSnapshot,不写坏值;错误经调用方
+      // 的 guard / unhandledrejection 通道提示。
+      console.error('[reloadGlobal]', e);
     }
-
-    const lib = desiredNow?.library.bundles ?? {};
-    setGlobalSnapshot({
-      mcp: gs.mcp.map(m => ({ id: m.id, hasSecrets: m.hasSecrets })),
-      skills: gs.skills.map(s => s.id),
-      plugins: gs.plugins.filter(p => p.enabled).map(p => p.id),
-      // 只显示显式分配的 bundle——绝不从「MCP 全在全局」推断,手动添加会误报
-      bundles: gs.bundleIds.map(id => lib[id]).filter((b): b is LibraryBundle => !!b),
-    });
   }, []); // 不依赖 desired —— 用 ref 读取最新值
   reloadGlobalRef.current = reloadGlobal;
 
@@ -458,7 +473,7 @@ export function App() {
               const next = await window.station.deleteBundle(bid);
               setDesired(next);
             })}
-            deadSkillIds={skillHealth ? new Set(skillHealth.dead) : undefined}
+            deadSkillIds={skillHealth ? new Set([...skillHealth.dead, ...skillHealth.incomplete]) : undefined}
             onOpenDoctor={() => setDoctorOpen(true)}
           />
         </div>
@@ -473,6 +488,10 @@ export function App() {
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         />
+        {/* Canvas 是最高频崩溃点(computedNodes / reactflow 渲染期)。单独包错误边界:
+            崩溃时 rail/header/DetailPanel 仍可用,「重新加载」重扫磁盘修复半更新 state;
+            resetKey 在数据变化后自动复位卡片。 */}
+        <ErrorBoundary label="画布" onReset={() => guard(reload)} resetKey={`${projects.length}|${globalSnapshot.plugins.length}|${globalSnapshot.mcp.length}`}>
         <Canvas
           projects={projects}
           desiredMcp={desired?.library.mcp ?? {}}
@@ -497,6 +516,7 @@ export function App() {
           onDeleteProject={(path, name) => setDeleteTarget({ path, name })}
           pendingPaths={pendingPaths}
         />
+        </ErrorBoundary>
         <DetailPanel project={selected} assignments={selected ? desired?.assignments[selected.path] : undefined} desiredBundles={desired?.library.bundles ?? {}} desiredMcp={desired?.library.mcp ?? {}} onUnassign={onUnassignItem} onUnassignBundle={(bid) => selected && onUnassignBundle(selected.path, bid)} onDeleteProject={(path, name) => setDeleteTarget({ path, name })}
           isGlobal={globalSelected}
           globalSnapshot={globalSnapshot}
@@ -505,6 +525,7 @@ export function App() {
           onUnassignGlobalPlugin={onUnassignGlobalPlugin}
           onUnassignGlobalBundle={onUnassignGlobalBundle}
           drifted={selected ? driftedPaths.has(selected.path) : false}
+          deadSkillIds={skillHealth ? new Set([...skillHealth.dead, ...skillHealth.incomplete]) : undefined}
         />
         </>
         )}

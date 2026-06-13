@@ -1,6 +1,6 @@
 {
   "name": "claude-orbit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Claude Orbit — visual capability assembly station for Claude Code projects. Drag MCP servers, Skills, and Plugins onto project planets with instant apply.",
   "main": "out/main/index.js",
   "type": "module",

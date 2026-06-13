@@ -62,17 +62,21 @@ export function removeGlobalMcp(id: string, stamp?: string): void {
 export interface GlobalSkillInfo { id: string; isSymlink: boolean; }
 export function listGlobalSkills(): GlobalSkillInfo[] {
   const result: GlobalSkillInfo[] = [];
+  // 只把含 SKILL.md 的目录/symlink 当有效 skill——空壳目录、指向空目录的死链
+  // 会被 Claude Code 忽略(终端 No skills found),Orbit 也必须一致过滤,否则
+  // Global 星球会显示出终端根本看不到的幽灵 skill。existsSync 会 follow symlink。
+  const hasSkillMd = (dir: string, name: string) => existsSync(join(dir, name, 'SKILL.md'));
   // scan ~/.claude/skills
   if (existsSync(skillsDir)) {
     for (const e of readdirSync(skillsDir, { withFileTypes: true })) {
-      if (e.isDirectory() || e.isSymbolicLink())
+      if ((e.isDirectory() || e.isSymbolicLink()) && hasSkillMd(skillsDir, e.name))
         result.push({ id: e.name, isSymlink: e.isSymbolicLink() });
     }
   }
   // scan ~/.agents/skills
   if (existsSync(agentsSkillsDir)) {
     for (const e of readdirSync(agentsSkillsDir, { withFileTypes: true })) {
-      if (e.isDirectory() || e.isSymbolicLink()) {
+      if ((e.isDirectory() || e.isSymbolicLink()) && hasSkillMd(agentsSkillsDir, e.name)) {
         // avoid duplicates if same skill name exists in both
         if (!result.some(r => r.id === e.name))
           result.push({ id: e.name, isSymlink: e.isSymbolicLink() });

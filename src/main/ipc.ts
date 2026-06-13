@@ -16,7 +16,7 @@ import { unmountProject, addProject, pathExists, relinkProjectSkill } from './st
 import { scanSkillHealth } from './station/skillHealth';
 import { importSkill } from './station/skillLibrary';
 import { importDiscoveredSkills } from './station/skillScan';
-import { diagnoseDeadSkills, repairDeadSkills } from './station/skillDoctor';
+import { diagnoseDeadSkills, repairDeadSkills, removeDeadSkills } from './station/skillDoctor';
 import { checkAllDrift, checkProjectDrift } from './station/drift';
 import { listBackups, restoreBackup } from './station/backup';
 import { listGlobalMcp, addGlobalMcp, removeGlobalMcp, listGlobalSkills, addGlobalSkill, removeGlobalSkill, listGlobalPlugins, addGlobalPlugin, removeGlobalPlugin, assignGlobalBundle, unassignGlobalBundle } from './station/globalSettings';
@@ -248,6 +248,11 @@ export function registerIpc(): void {
   ipcMain.handle('station:diagnoseDeadSkills', () => diagnoseDeadSkills(loadState()));
   ipcMain.handle('station:repairDeadSkills', (_e, ids: string[]) => {
     const { state, report } = repairDeadSkills(loadState(), ids);
+    return { state, report };
+  });
+  // 移除无源死链/空壳 skill:破坏性,全局死链走废纸篓(注入 shell.trashItem)
+  ipcMain.handle('station:removeDeadSkills', async (_e, ids: string[]) => {
+    const { state, report } = await removeDeadSkills(loadState(), ids, undefined, (p) => shell.trashItem(p));
     return { state, report };
   });
 

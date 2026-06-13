@@ -105,7 +105,11 @@ export function Canvas({ projects, desiredMcp, desiredSkills, desiredPlugins, de
       };
     }
 
-    const p = projects.find(x => x.path === l.path)!;
+    // layout 与 projects 同源,但在 setState 更新竞态/过期闭包下 find 可能短暂
+    // 返回 undefined。宁可少渲染一个节点(下方 filter 掉)也不让整个 Canvas 抛错
+    // 导致星球全消失——与外层 ErrorBoundary 形成双保险。
+    const p = projects.find(x => x.path === l.path);
+    if (!p) return null;
     const a = assignments[l.path] ?? { mcp: [], skills: [], plugins: [], snippets: [], bundles: [] };
 
     const inferredMcp = p.mcp.map(m => m.id);
@@ -144,7 +148,7 @@ export function Canvas({ projects, desiredMcp, desiredSkills, desiredPlugins, de
         libraryMcp: desiredMcp, librarySkills: desiredSkills, libraryPlugins: desiredPlugins, librarySnippets: desiredSnippets,
         draggingItem, isDragOver: draggingItem !== null, isPending: pendingPaths?.has(l.path) ?? false, onDropItem, onUnassignMcp, onUnassignBundle, onSelect: () => onSelect(p) },
     };
-  });
+  }).filter(Boolean); // 剔除 find 未命中返回的 null 节点,不喂给 reactflow
     // 零项目空态:在 Global 旁放一个「添加第一个项目」占位节点引导新用户
     if (projects.length === 0) {
       const g = layout.find(l => l.path === '__global__');

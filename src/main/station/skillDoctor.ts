@@ -1,4 +1,4 @@
-import { existsSync, statSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { existsSync, statSync, readFileSync, rmSync, mkdirSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { orbitPaths } from './paths';
@@ -134,5 +134,58 @@ export function repairDeadSkills(
   }
 
   if (report.repaired.length > 0) saveState(next, home);
+  return { state: next, report };
+}
+
+export interface RemoveReport {
+  removed: string[];
+  failed: { id: string; reason: string }[];
+}
+
+/** 移除无源的死链/空壳 skill(diagnoseDeadSkills 判为 manual 且确实不健康的)。
+ *  破坏性清理:删空 library 目录 + 全局死链 symlink + state 里所有引用。
+ *  trash 用于删用户真实配置树里的条目(走废纸篓);未注入时回退 rmSync(供测试)。 */
+export async function removeDeadSkills(
+  state: StationState,
+  ids: string[],
+  home: string = homedir(),
+  trash?: (p: string) => Promise<void>,
+): Promise<{ state: StationState; report: RemoveReport }> {
+  // 只允许移除当前确实不健康的 id——重跑诊断求交集,防止误删健康 skill
+  const unhealthy = new Set(diagnoseDeadSkills(state, home).map(d => d.id));
+  const libDir = join(orbitPaths(home).orbitDir, 'library', 'skills');
+  const globalDirs = [join(home, '.claude', 'skills'), join(home, '.agents', 'skills')];
+  const report: RemoveReport = { removed: [], failed: [] };
+  const next = state;
+
+  for (const id of ids) {
+    if (!unhealthy.has(id)) { report.failed.push({ id, reason: '不在死链列表(可能已健康)' }); continue; }
+    try {
+      // library 副本:Orbit 自有、已验不健康(无 SKILL.md)、不可恢复——护栏:绝不删含 SKILL.md 的目录
+      const libEntry = join(libDir, id);
+      if (existsSync(join(libEntry, 'SKILL.md'))) { report.failed.push({ id, reason: '目标含 SKILL.md,拒绝删除' }); continue; }
+      if (existsSync(libEntry)) rmSync(libEntry, { recursive: true, force: true });
+      // 全局死链 symlink:用户真实配置树,走废纸篓(未注入 trash 时回退 rmSync,供测试)
+      for (const gd of globalDirs) {
+        const cand = join(gd, id);
+        let exists = false;
+        try { exists = !!lstatSync(cand); } catch { /* 不存在 */ }
+        if (!exists) continue;
+        if (trash) await trash(cand); else rmSync(cand, { recursive: true, force: true });
+      }
+      // 清 state 里所有引用:library 条目 + bundle 引用 + 全局 bundle 安装记录 +
+      // 项目 assignment/lastApplied(否则下次 apply 可能重建死链 symlink)
+      delete next.library.skills[id];
+      for (const b of Object.values(next.library.bundles ?? {})) b.skills = b.skills.filter(s => s !== id);
+      for (const e of Object.values(next.globalBundleApplied ?? {})) e.skills = e.skills.filter(s => s !== id);
+      for (const a of Object.values(next.assignments ?? {})) a.skills = a.skills.filter(s => s !== id);
+      for (const la of Object.values(next.lastApplied ?? {})) la.skills = la.skills.filter(s => s !== id);
+      report.removed.push(id);
+    } catch (e: any) {
+      report.failed.push({ id, reason: e?.message ?? String(e) });
+    }
+  }
+
+  if (report.removed.length > 0) saveState(next, home);
   return { state: next, report };
 }
